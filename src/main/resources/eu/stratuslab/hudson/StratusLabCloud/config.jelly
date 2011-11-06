@@ -21,8 +21,10 @@
     progress="${%Testing...}" method="testConnection"
     with="clientLocation,endpoint,username,password" />
 
-  <!-- <f:entry title="${%Marketplace IDs}"> <f:repeatable field="templates"> 
-    <f:entry title="${%Marketplace ID}" field="id"> <f:textbox /> </f:entry> 
-    </f:repeatable> </f:entry> -->
+  <f:entry title="${%Slave Templates}">
+    <f:repeatable field="templates">
+      <st:include page="config.jelly" class="eu.stratuslab.hudson.SlaveTemplate" />
+    </f:repeatable>
+  </f:entry>
 
 </j:jelly>

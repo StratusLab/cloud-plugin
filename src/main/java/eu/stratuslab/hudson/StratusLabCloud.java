@@ -59,11 +59,12 @@ public class StratusLabCloud extends AbstractCloudImpl {
 
     public final String instanceLimit;
 
-    // public final List<SlaveTemplate> templates;
+    public final List<SlaveTemplate> templates;
 
     @DataBoundConstructor
     public StratusLabCloud(String clientLocation, String endpoint,
-            String username, String password, String instanceLimit) {
+            String username, String password, String instanceLimit,
+            List<SlaveTemplate> templates) {
         super(CLOUD_NAME, instanceLimit);
 
         this.clientLocation = clientLocation;
@@ -71,7 +72,7 @@ public class StratusLabCloud extends AbstractCloudImpl {
         this.username = username;
         this.password = password;
         this.instanceLimit = instanceLimit;
-        // this.templates = copyToImmutableList(templates);
+        this.templates = copyToImmutableList(templates);
     }
 
     List<SlaveTemplate> copyToImmutableList(List<SlaveTemplate> templates) {
