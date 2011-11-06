@@ -1,0 +1,28 @@
+<j:jelly xmlns:j="jelly:core" xmlns:st="jelly:stapler" xmlns:d="jelly:define"
+  xmlns:l="/lib/layout" xmlns:t="/lib/hudson" xmlns:f="/lib/form">
+
+  <f:entry title="${%StratusLab Client Location}" field="clientLocation">
+    <f:textbox />
+  </f:entry>
+  <f:entry title="${%Endpoint}" field="endpoint">
+    <f:textbox />
+  </f:entry>
+  <f:entry title="${%Username}" field="username">
+    <f:textbox />
+  </f:entry>
+  <f:entry title="${%Password}" field="password">
+    <f:password />
+  </f:entry>
+  <f:entry title="${%Instance Limit}" field="instanceLimit">
+    <f:textbox default="5" />
+  </f:entry>
+
+  <f:validateButton title="${%Test Connection}"
+    progress="${%Testing...}" method="testConnection"
+    with="clientLocation,endpoint,username,password" />
+
+  <!-- <f:entry title="${%Marketplace IDs}"> <f:repeatable field="templates"> 
+    <f:entry title="${%Marketplace ID}" field="id"> <f:textbox /> </f:entry> 
+    </f:repeatable> </f:entry> -->
+
+</j:jelly>

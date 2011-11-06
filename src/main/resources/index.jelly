@@ -1,0 +1,7 @@
+<!-- Short description of plugin for plugin management pages. -->
+<div>
+  <p>
+    This plugin allows Hudson to take advantage of resources from 
+    <a href="http://stratuslab.eu/">StratusLab</a> cloud infrastructures.
+  </p>
+</div>
