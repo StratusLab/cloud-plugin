@@ -23,23 +23,18 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.Callable;
 import java.util.concurrent.Future;
 import java.util.concurrent.FutureTask;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 import org.kohsuke.stapler.DataBoundConstructor;
 import org.kohsuke.stapler.QueryParameter;
 
 public class StratusLabCloud extends AbstractCloudImpl {
-
-    private static final String NODE_PREFIX = "StratusLab:";
-
-    private static final Pattern MACHINE_ID_PATTERN = Pattern.compile("^"
-            + NODE_PREFIX + "([a-zA-Z0-9_-]{27})$");
 
     private static final long DEMAND_DELAY = 60 * 1000L; // 1 minute
 
@@ -61,6 +56,8 @@ public class StratusLabCloud extends AbstractCloudImpl {
 
     public final List<SlaveTemplate> templates;
 
+    private final Map<String, SlaveTemplate> labelToTemplateMap;
+
     @DataBoundConstructor
     public StratusLabCloud(String clientLocation, String endpoint,
             String username, String password, String instanceLimit,
@@ -73,13 +70,32 @@ public class StratusLabCloud extends AbstractCloudImpl {
         this.password = password;
         this.instanceLimit = instanceLimit;
         this.templates = copyToImmutableList(templates);
+
+        this.labelToTemplateMap = createLabelToTemplateMap(this.templates);
     }
 
-    List<SlaveTemplate> copyToImmutableList(List<SlaveTemplate> templates) {
+    private List<SlaveTemplate> copyToImmutableList(
+            List<SlaveTemplate> templates) {
         ArrayList<SlaveTemplate> list = new ArrayList<SlaveTemplate>();
-        list.addAll(templates);
+        if (templates != null) {
+            list.addAll(templates);
+        }
         list.trimToSize();
         return Collections.unmodifiableList(list);
+    }
+
+    private Map<String, SlaveTemplate> createLabelToTemplateMap(
+            List<SlaveTemplate> templates) {
+
+        Map<String, SlaveTemplate> map = new HashMap<String, SlaveTemplate>();
+
+        for (SlaveTemplate template : templates) {
+            for (String label : template.labels) {
+                map.put(label, template);
+            }
+        }
+
+        return Collections.unmodifiableMap(map);
     }
 
     @SuppressWarnings("unchecked")
@@ -88,45 +104,27 @@ public class StratusLabCloud extends AbstractCloudImpl {
     }
 
     public boolean canProvision(Label label) {
-        return isMachineId(label);
+        return labelToTemplateMap.containsKey(label.getName());
     }
 
     public Collection<PlannedNode> provision(Label label, int excessWorkload) {
 
-        String id = extractMachineId(label);
+        SlaveTemplate template = labelToTemplateMap.get(label.getName());
+        String id = template.marketplaceId;
+        String type = template.instanceType.name();
 
         Collection<PlannedNode> nodes = new LinkedList<PlannedNode>();
 
         for (int i = 0; i < excessWorkload; i++) {
-            PlannedNode node = new PlannedNode(id, getNodeCreator(id), 1);
+            PlannedNode node = new PlannedNode(id, getNodeCreator(id, type), 1);
             nodes.add(node);
         }
 
         return nodes;
     }
 
-    public static boolean isMachineId(Label label) {
-        return isMachineId(label.getName());
-    }
-
-    public static boolean isMachineId(String machine_uri) {
-        Matcher matcher = MACHINE_ID_PATTERN.matcher(machine_uri);
-        return matcher.matches();
-    }
-
-    public static String extractMachineId(Label label) {
-        String id = EMPTY_STRING;
-
-        String name = label.getName();
-        Matcher matcher = MACHINE_ID_PATTERN.matcher(name);
-        if (matcher.matches()) {
-            id = matcher.group(1);
-        }
-        return id;
-    }
-
-    public Future<Node> getNodeCreator(String id) {
-        return new FutureTask<Node>(new VmCreator(id, endpoint, username,
+    public Future<Node> getNodeCreator(String id, String type) {
+        return new FutureTask<Node>(new VmCreator(id, type, endpoint, username,
                 password));
     }
 
@@ -134,18 +132,21 @@ public class StratusLabCloud extends AbstractCloudImpl {
 
         private final String id;
 
-        // private final String endpoint;
+        private final String type;
 
-        // private final String username;
+        private final String endpoint;
 
-        // private final String password;
+        private final String username;
 
-        public VmCreator(String id, String endpoint, String username,
-                String password) {
+        private final String password;
+
+        public VmCreator(String id, String type, String endpoint,
+                String username, String password) {
             this.id = id;
-            // this.endpoint = endpoint;
-            // this.username = username;
-            // this.password = password;
+            this.type = type;
+            this.endpoint = endpoint;
+            this.username = username;
+            this.password = password;
         }
 
         public Node call() throws IOException, Descriptor.FormException {
