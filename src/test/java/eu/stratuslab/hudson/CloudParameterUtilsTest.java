@@ -4,7 +4,7 @@ import static eu.stratuslab.hudson.StratusLabCloud.DescriptorImpl.getEndpoint;
 
 import org.junit.Test;
 
-public class StratusLabCloudTest {
+public class CloudParameterUtilsTest {
 
     @Test(expected = StratusLabException.class)
     public void testEmptyEndpoint() throws StratusLabException {
