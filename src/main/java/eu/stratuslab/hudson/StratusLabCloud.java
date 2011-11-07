@@ -11,12 +11,11 @@ import hudson.model.Hudson;
 import hudson.model.Label;
 import hudson.model.Node;
 import hudson.slaves.Cloud;
+import hudson.slaves.CloudRetentionStrategy;
 import hudson.slaves.NodeProperty;
 import hudson.slaves.NodeProvisioner.PlannedNode;
 import hudson.slaves.AbstractCloudImpl;
 import hudson.slaves.ComputerLauncher;
-import hudson.slaves.DumbSlave;
-import hudson.slaves.RetentionStrategy;
 import hudson.util.FormValidation;
 
 import java.io.IOException;
@@ -30,15 +29,18 @@ import java.util.Map;
 import java.util.concurrent.Callable;
 import java.util.concurrent.Future;
 import java.util.concurrent.FutureTask;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 import org.kohsuke.stapler.DataBoundConstructor;
 import org.kohsuke.stapler.QueryParameter;
 
 public class StratusLabCloud extends AbstractCloudImpl {
 
-    private static final long DEMAND_DELAY = 60 * 1000L; // 1 minute
+    private static final Logger LOGGER = Logger.getLogger(StratusLabCloud.class
+            .getName());
 
-    private static final long IDLE_DELAY = 60 * 1000L; // 1 minute
+    private static final int IDLE_MINUTES = 1;
 
     private static final String CLOUD_NAME = "StratusLab Cloud";
 
@@ -71,7 +73,12 @@ public class StratusLabCloud extends AbstractCloudImpl {
         this.instanceLimit = instanceLimit;
         this.templates = copyToImmutableList(templates);
 
-        this.labelToTemplateMap = createLabelToTemplateMap(this.templates);
+        labelToTemplateMap = createLabelToTemplateMap(this.templates);
+
+        String msg = "StratusLab cloud: configuration updated with "
+                + labelToTemplateMap.size() + " label(s) and "
+                + templates.size() + " slave template(s)";
+        LOGGER.log(Level.INFO, msg);
     }
 
     private List<SlaveTemplate> copyToImmutableList(
@@ -98,69 +105,100 @@ public class StratusLabCloud extends AbstractCloudImpl {
         return Collections.unmodifiableMap(map);
     }
 
+    // TODO: Check if this is necessary or defined in superclass.
     @SuppressWarnings("unchecked")
     public Descriptor<Cloud> getDescriptor() {
         return Hudson.getInstance().getDescriptor(getClass());
     }
 
     public boolean canProvision(Label label) {
-        return labelToTemplateMap.containsKey(label.getName());
+        if (label != null) {
+            return labelToTemplateMap.containsKey(label.getName());
+        } else {
+            return false;
+        }
     }
 
     public Collection<PlannedNode> provision(Label label, int excessWorkload) {
 
-        SlaveTemplate template = labelToTemplateMap.get(label.getName());
-        String id = template.marketplaceId;
-        String type = template.instanceType.name();
-
         Collection<PlannedNode> nodes = new LinkedList<PlannedNode>();
 
-        for (int i = 0; i < excessWorkload; i++) {
-            PlannedNode node = new PlannedNode(id, getNodeCreator(id, type), 1);
-            nodes.add(node);
+        // The returned value for template should never be null because
+        // only labels will be used for which the canProvision method
+        // returned true. However, label can be null if Hudson is searching
+        // for a node without a label. This implementation doesn't support
+        // that.
+        if (label != null) {
+            String stringLabel = label.getName();
+            SlaveTemplate template = labelToTemplateMap.get(stringLabel);
+
+            String id = template.marketplaceId;
+            String type = template.instanceType.name();
+            int executorsPerInstance = template.getExecutors();
+
+            String displayName = stringLabel + " (" + id + ", " + type + ")";
+
+            for (int i = 0; i < excessWorkload; i += executorsPerInstance) {
+                PlannedNode node = new PlannedNode(displayName, getNodeCreator(
+                        template, stringLabel), executorsPerInstance);
+                nodes.add(node);
+            }
         }
 
+        String msg = "StratusLab cloud: allocating " + nodes.size()
+                + " node(s)";
+        LOGGER.log(Level.INFO, msg);
         return nodes;
     }
 
-    public Future<Node> getNodeCreator(String id, String type) {
-        return new FutureTask<Node>(new VmCreator(id, type, endpoint, username,
-                password));
+    public Future<Node> getNodeCreator(SlaveTemplate template, String label) {
+        VmCreator creator = new VmCreator(template, this, label);
+        return new FutureTask<Node>(creator);
     }
 
     public static class VmCreator implements Callable<Node> {
 
-        private final String id;
+        private final SlaveTemplate template;
 
-        private final String type;
+        private final StratusLabCloud cloud;
 
-        private final String endpoint;
+        private final String label;
 
-        private final String username;
-
-        private final String password;
-
-        public VmCreator(String id, String type, String endpoint,
-                String username, String password) {
-            this.id = id;
-            this.type = type;
-            this.endpoint = endpoint;
-            this.username = username;
-            this.password = password;
+        public VmCreator(SlaveTemplate template, StratusLabCloud cloud,
+                String label) {
+            this.template = template;
+            this.cloud = cloud;
+            this.label = label;
         }
 
         public Node call() throws IOException, Descriptor.FormException {
-            ComputerLauncher launcher = null;
-            RetentionStrategy.Demand strategy = new RetentionStrategy.Demand(
-                    DEMAND_DELAY, IDLE_DELAY);
+
+            Logger logger = Logger.getLogger(StratusLabCloud.class.getName());
+
+            ComputerLauncher launcher = new StratusLabLauncher(cloud,
+                    template.marketplaceId);
+
+            CloudRetentionStrategy retentionStrategy = new CloudRetentionStrategy(
+                    IDLE_MINUTES);
 
             List<? extends NodeProperty<?>> nodeProperties = new LinkedList<NodeProperty<Node>>();
 
-            return new DumbSlave(id, id, "/var/lib/hudson", "1",
-                    Node.Mode.NORMAL, id, launcher, strategy, nodeProperties);
+            String name = template.labelString;
+            String description = template.marketplaceId + ", "
+                    + template.instanceType.name();
+
+            StratusLabSlave slave = new StratusLabSlave(name, description,
+                    template.remoteFS, template.getExecutors(),
+                    Node.Mode.NORMAL, name, launcher, retentionStrategy,
+                    nodeProperties);
+
+            String msg = "StratusLab cloud: generated node for label " + label
+                    + " with Marketplace Id " + template.marketplaceId;
+            logger.log(Level.INFO, msg);
+
+            return slave;
 
         }
-
     }
 
     @Extension

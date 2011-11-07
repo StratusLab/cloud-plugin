@@ -102,6 +102,14 @@ public class SlaveTemplate implements Describable<SlaveTemplate> {
         return Hudson.getInstance().getDescriptor(getClass());
     }
 
+    public int getExecutors() {
+        try {
+            return Integer.parseInt(executors);
+        } catch (IllegalArgumentException e) {
+            return 1;
+        }
+    }
+
     @Extension
     public static final class DescriptorImpl extends Descriptor<SlaveTemplate> {
 

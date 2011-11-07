@@ -2,9 +2,11 @@ package eu.stratuslab.hudson;
 
 import java.io.File;
 import java.io.IOException;
+import java.io.InputStream;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.Scanner;
 
 public final class ProcessUtils {
 
@@ -18,6 +20,20 @@ public final class ProcessUtils {
 
     public static void runCommand(String clientLocation, String cmd,
             String... options) throws StratusLabException {
+
+        ProcessOutput results = runCommandWithResults(clientLocation, cmd,
+                options);
+
+        if (results.rc != 0) {
+            throw new StratusLabException(
+                    "command returned non-zero exit code (" + results.rc + "; "
+                            + results.cmd + ")");
+        }
+
+    }
+
+    public static ProcessOutput runCommandWithResults(String clientLocation,
+            String cmd, String... options) throws StratusLabException {
 
         if (clientLocation == null) {
             throw new StratusLabException("client location cannot be null");
@@ -58,11 +74,8 @@ public final class ProcessUtils {
         try {
             process = pb.start();
             int rc = process.waitFor();
-            if (rc != 0) {
-                throw new StratusLabException(
-                        "command returned non-zero exit code (" + rc + "; "
-                                + fullCmd + ")");
-            }
+            return new ProcessOutput(fullCmd.toString(), rc,
+                    process.getInputStream(), process.getErrorStream());
         } catch (InterruptedException e) {
             throw new StratusLabException(e.getMessage());
         } catch (IOException e) {
@@ -73,6 +86,10 @@ public final class ProcessUtils {
             }
         }
 
+    }
+
+    public static String convertStreamToString(InputStream is) {
+        return new Scanner(is).useDelimiter("\\A").next();
     }
 
     public static File getRootDirectory(String clientLocation)
@@ -137,6 +154,27 @@ public final class ProcessUtils {
             newValue.append(oldValue);
         }
         environment.put(key, newValue.toString());
+
+    }
+
+    public static class ProcessOutput {
+
+        public final String cmd;
+
+        public final int rc;
+
+        public final String output;
+
+        public final String error;
+
+        public ProcessOutput(String cmd, int rc, InputStream processOutput,
+                InputStream processError) {
+
+            this.cmd = cmd;
+            this.rc = rc;
+            output = convertStreamToString(processOutput);
+            error = convertStreamToString(processError);
+        }
 
     }
 
