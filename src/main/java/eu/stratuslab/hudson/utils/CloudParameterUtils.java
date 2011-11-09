@@ -1,12 +1,14 @@
-package eu.stratuslab.hudson;
+package eu.stratuslab.hudson.utils;
 
-import static eu.stratuslab.hudson.ProcessUtils.runCommand;
+import static eu.stratuslab.hudson.utils.ProcessUtils.runCommand;
 import hudson.util.FormValidation;
 
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+
+import eu.stratuslab.hudson.StratusLabException;
 
 public final class CloudParameterUtils {
 

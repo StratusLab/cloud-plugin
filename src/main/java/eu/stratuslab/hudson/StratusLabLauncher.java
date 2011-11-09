@@ -1,6 +1,6 @@
 package eu.stratuslab.hudson;
 
-import static eu.stratuslab.hudson.ProcessUtils.runSystemCommandWithResults;
+import static eu.stratuslab.hudson.utils.ProcessUtils.runSystemCommandWithResults;
 import hudson.model.TaskListener;
 import hudson.slaves.CommandLauncher;
 import hudson.slaves.ComputerLauncher;
@@ -10,7 +10,9 @@ import hudson.slaves.SlaveComputer;
 import java.io.IOException;
 import java.util.logging.Logger;
 
-import eu.stratuslab.hudson.ProcessUtils.ProcessResult;
+import eu.stratuslab.hudson.utils.ProcessUtils.ProcessResult;
+
+
 
 public class StratusLabLauncher extends DelegatingComputerLauncher {
 

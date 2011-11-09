@@ -1,10 +1,10 @@
 package eu.stratuslab.hudson;
 
-import static eu.stratuslab.hudson.SlaveParameterUtils.createLabelList;
-import static eu.stratuslab.hudson.SlaveParameterUtils.validateExecutors;
-import static eu.stratuslab.hudson.SlaveParameterUtils.validateLabelString;
-import static eu.stratuslab.hudson.SlaveParameterUtils.validateMarketplaceId;
-import static eu.stratuslab.hudson.SlaveParameterUtils.validateSshPort;
+import static eu.stratuslab.hudson.utils.SlaveParameterUtils.createLabelList;
+import static eu.stratuslab.hudson.utils.SlaveParameterUtils.validateExecutors;
+import static eu.stratuslab.hudson.utils.SlaveParameterUtils.validateLabelString;
+import static eu.stratuslab.hudson.utils.SlaveParameterUtils.validateMarketplaceId;
+import static eu.stratuslab.hudson.utils.SlaveParameterUtils.validateSshPort;
 import hudson.Extension;
 import hudson.model.Describable;
 import hudson.model.Descriptor;

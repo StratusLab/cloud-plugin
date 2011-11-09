@@ -1,4 +1,4 @@
-package eu.stratuslab.hudson;
+package eu.stratuslab.hudson.utils;
 
 import java.io.BufferedInputStream;
 import java.io.Closeable;
@@ -18,6 +18,9 @@ import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.logging.Logger;
+
+import eu.stratuslab.hudson.StratusLabCloud;
+import eu.stratuslab.hudson.StratusLabException;
 
 public final class ProcessUtils {
 

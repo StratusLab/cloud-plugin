@@ -1,9 +1,9 @@
 package eu.stratuslab.hudson;
 
-import static eu.stratuslab.hudson.CloudParameterUtils.isEmptyStringOrNull;
-import static eu.stratuslab.hudson.CloudParameterUtils.isPositiveInteger;
-import static eu.stratuslab.hudson.CloudParameterUtils.validateClientLocation;
-import static eu.stratuslab.hudson.CloudParameterUtils.validateEndpoint;
+import static eu.stratuslab.hudson.utils.CloudParameterUtils.isEmptyStringOrNull;
+import static eu.stratuslab.hudson.utils.CloudParameterUtils.isPositiveInteger;
+import static eu.stratuslab.hudson.utils.CloudParameterUtils.validateClientLocation;
+import static eu.stratuslab.hudson.utils.CloudParameterUtils.validateEndpoint;
 import hudson.Extension;
 import hudson.model.Computer;
 import hudson.model.Descriptor;
@@ -18,7 +18,6 @@ import hudson.slaves.AbstractCloudImpl;
 import hudson.slaves.ComputerLauncher;
 import hudson.util.FormValidation;
 
-import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;

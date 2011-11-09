@@ -1,8 +1,8 @@
-package eu.stratuslab.hudson;
+package eu.stratuslab.hudson.utils;
 
-import static eu.stratuslab.hudson.CloudParameterUtils.isEmptyStringOrNull;
-import static eu.stratuslab.hudson.CloudParameterUtils.isPositiveInteger;
-import static eu.stratuslab.hudson.CloudParameterUtils.isValidPort;
+import static eu.stratuslab.hudson.utils.CloudParameterUtils.isEmptyStringOrNull;
+import static eu.stratuslab.hudson.utils.CloudParameterUtils.isPositiveInteger;
+import static eu.stratuslab.hudson.utils.CloudParameterUtils.isValidPort;
 import hudson.util.FormValidation;
 
 import java.util.ArrayList;

@@ -1,13 +1,15 @@
 package eu.stratuslab.hudson;
 
-import static eu.stratuslab.hudson.ProcessUtils.runCommand;
-import static eu.stratuslab.hudson.ProcessUtils.runCommandWithResults;
+import static eu.stratuslab.hudson.utils.ProcessUtils.runCommand;
+import static eu.stratuslab.hudson.utils.ProcessUtils.runCommandWithResults;
 
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.StringReader;
 
-import eu.stratuslab.hudson.ProcessUtils.ProcessResult;
+import eu.stratuslab.hudson.utils.ProcessUtils;
+import eu.stratuslab.hudson.utils.ProcessUtils.ProcessResult;
+
 
 /*
  * This class handles the interactions between Hudson and a StratusLab cloud infrastructure.
@@ -20,6 +22,12 @@ public class StratusLabProxy {
         runCommand(params.clientLocation, "stratus-describe-instance",
                 "--endpoint", params.endpoint, "--username", params.username,
                 "--password", params.password);
+    }
+
+    public static void testInstallation(StratusLabParams params)
+            throws StratusLabException {
+
+        runCommand(params.clientLocation, "stratus-describe-instance", "--help");
     }
 
     public static String[] startInstance(StratusLabParams params,
