@@ -53,15 +53,9 @@ public final class SlaveParameterUtils {
         }
     }
 
-    public static FormValidation validateSshPort(String sshPort) {
-        int port = 0;
-        try {
-            port = Integer.parseInt(sshPort);
-        } catch (IllegalArgumentException e) {
-            return FormValidation.error("ssh port must be a positive integer");
-        }
+    public static FormValidation validateSshPort(int sshPort) {
 
-        if (isValidPort(port)) {
+        if (isValidPort(sshPort)) {
             return FormValidation.ok();
         } else {
             return FormValidation.error("port must be in range [1, 65535]");

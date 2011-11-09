@@ -31,6 +31,9 @@
       <f:entry title="${%Number of Executors}" field="executors">
         <f:textbox default="1" />
       </f:entry>
+      <f:entry title="${%Idle Time (min.)}" field="idleMinutes">
+        <f:textbox default="10" />
+      </f:entry>
       <f:entry title="${%Root command prefix}" field="rootCommandPrefix">
         <f:textbox />
       </f:entry>

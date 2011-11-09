@@ -28,17 +28,14 @@ public class SlaveCreator implements Callable<Node> {
 
     private final String displayName;
 
-    private final int idleMinutes;
-
     private InstanceInfo info;
 
     public SlaveCreator(SlaveTemplate template, StratusLabCloud cloud,
-            Label label, String displayName, int idleMinutes) {
+            Label label, String displayName) {
         this.template = template;
         this.cloud = cloud;
         this.label = label;
         this.displayName = displayName;
-        this.idleMinutes = idleMinutes;
     }
 
     public Node call() throws IOException, StratusLabException,
@@ -49,7 +46,7 @@ public class SlaveCreator implements Callable<Node> {
         ComputerLauncher launcher = new StratusLabLauncher(cloud.params, info);
 
         CloudRetentionStrategy retentionStrategy = new CloudRetentionStrategy(
-                idleMinutes);
+                template.idleMinutes);
 
         List<? extends NodeProperty<?>> nodeProperties = new LinkedList<NodeProperty<Node>>();
 
@@ -58,10 +55,10 @@ public class SlaveCreator implements Callable<Node> {
 
         LOGGER.info("generating slave for " + label + " " + description);
 
-        StratusLabSlave slave = new StratusLabSlave(label.getName(),
-                description, template.remoteFS, template.getExecutors(),
-                Node.Mode.NORMAL, label.getName(), launcher, retentionStrategy,
-                nodeProperties);
+        StratusLabSlave slave = new StratusLabSlave(cloud.params, info,
+                label.getName(), description, template.remoteFS,
+                template.executors, Node.Mode.NORMAL, label.getName(),
+                launcher, retentionStrategy, nodeProperties);
 
         String msg = "created node for " + displayName;
         LOGGER.info(msg);

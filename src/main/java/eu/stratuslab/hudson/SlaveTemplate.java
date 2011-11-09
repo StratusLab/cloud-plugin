@@ -71,10 +71,11 @@ public class SlaveTemplate implements Describable<SlaveTemplate> {
     public final String labelString;
     public final String initScript;
     public final String context;
-    public final String executors;
+    public final int executors;
     public final String rootCommandPrefix;
     public final String jvmOpts;
-    public final String sshPort;
+    public final int sshPort;
+    public final int idleMinutes;
 
     public final List<String> labels;
 
@@ -82,8 +83,8 @@ public class SlaveTemplate implements Describable<SlaveTemplate> {
     public SlaveTemplate(String marketplaceId, InstanceTypes instanceType,
             String description, String remoteFS, String remoteUser,
             String labelString, String initScript, String context,
-            String executors, String rootCommandPrefix, String jvmOpts,
-            String sshPort) {
+            int executors, String rootCommandPrefix, String jvmOpts,
+            int sshPort, int idleMinutes) {
 
         this.marketplaceId = marketplaceId;
         this.instanceType = instanceType;
@@ -97,6 +98,7 @@ public class SlaveTemplate implements Describable<SlaveTemplate> {
         this.rootCommandPrefix = rootCommandPrefix;
         this.jvmOpts = jvmOpts;
         this.sshPort = sshPort;
+        this.idleMinutes = idleMinutes;
 
         this.labels = createLabelList(labelString);
     }
@@ -107,11 +109,7 @@ public class SlaveTemplate implements Describable<SlaveTemplate> {
     }
 
     public int getExecutors() {
-        try {
-            return Integer.parseInt(executors);
-        } catch (IllegalArgumentException e) {
-            return 1;
-        }
+        return executors;
     }
 
     @Extension
@@ -135,7 +133,7 @@ public class SlaveTemplate implements Describable<SlaveTemplate> {
             return validateExecutors(executors);
         }
 
-        public FormValidation doCheckSshPort(@QueryParameter String sshPort) {
+        public FormValidation doCheckSshPort(@QueryParameter int sshPort) {
             return validateSshPort(sshPort);
         }
 

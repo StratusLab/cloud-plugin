@@ -11,14 +11,10 @@ import hudson.model.Hudson;
 import hudson.model.Label;
 import hudson.model.Node;
 import hudson.slaves.Cloud;
-import hudson.slaves.CloudRetentionStrategy;
-import hudson.slaves.NodeProperty;
 import hudson.slaves.NodeProvisioner.PlannedNode;
 import hudson.slaves.AbstractCloudImpl;
-import hudson.slaves.ComputerLauncher;
 import hudson.util.FormValidation;
 
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -26,7 +22,6 @@ import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.Callable;
 import java.util.concurrent.Future;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.logging.Logger;
@@ -35,14 +30,11 @@ import org.kohsuke.stapler.DataBoundConstructor;
 import org.kohsuke.stapler.QueryParameter;
 
 import eu.stratuslab.hudson.SlaveTemplate.InstanceTypes;
-import eu.stratuslab.hudson.StratusLabProxy.InstanceInfo;
 
 public class StratusLabCloud extends AbstractCloudImpl {
 
     private static final Logger LOGGER = Logger.getLogger(StratusLabCloud.class
             .getName());
-
-    private static final int IDLE_MINUTES = 10;
 
     private static final String CLOUD_NAME = "StratusLab Cloud";
 
@@ -92,6 +84,7 @@ public class StratusLabCloud extends AbstractCloudImpl {
 
     private List<SlaveTemplate> copyToImmutableList(
             List<SlaveTemplate> templates) {
+
         ArrayList<SlaveTemplate> list = new ArrayList<SlaveTemplate>();
         if (templates != null) {
             list.addAll(templates);
@@ -140,22 +133,20 @@ public class StratusLabCloud extends AbstractCloudImpl {
         if (label != null) {
             SlaveTemplate template = labelToTemplateMap.get(label.getName());
 
-            int executors = template.getExecutors();
-
             String displayName = generateDisplayName(label,
                     template.marketplaceId, template.instanceType);
 
             int numberOfInstances = StratusLabProxy
                     .getNumberOfDefinedInstances(params);
 
-            for (int i = 0; i < excessWorkload; i += executors) {
+            for (int i = 0; i < excessWorkload; i += template.executors) {
                 SlaveCreator c = new SlaveCreator(template, this, label,
                         displayName);
                 Future<Node> futureNode = Computer.threadPoolForRemoting
                         .submit(c);
                 if (numberOfInstances < instanceLimit) {
                     nodes.add(new PlannedNode(displayName, futureNode,
-                            executors));
+                            template.executors));
                     numberOfInstances++;
                 } else {
                     LOGGER.warning("instance limit (" + instanceLimit
@@ -174,73 +165,7 @@ public class StratusLabCloud extends AbstractCloudImpl {
 
         final String format = "%s-%d (%s, %s)";
         return String.format(format, label.getName(), serial.incrementAndGet(),
-                marketplaceId, type.label());
-    }
-
-    public static class SlaveCreator implements Callable<Node> {
-
-        private static final Logger LOGGER = Logger
-                .getLogger(StratusLabCloud.class.getName());
-
-        private final SlaveTemplate template;
-
-        private final StratusLabCloud cloud;
-
-        private final Label label;
-
-        private final String displayName;
-
-        private InstanceInfo info;
-
-        public SlaveCreator(SlaveTemplate template, StratusLabCloud cloud,
-                Label label, String displayName) {
-            this.template = template;
-            this.cloud = cloud;
-            this.label = label;
-            this.displayName = displayName;
-        }
-
-        public Node call() throws IOException, StratusLabException,
-                Descriptor.FormException {
-
-            createInstance();
-
-            ComputerLauncher launcher = new StratusLabLauncher(cloud.params,
-                    info);
-
-            CloudRetentionStrategy retentionStrategy = new CloudRetentionStrategy(
-                    IDLE_MINUTES);
-
-            List<? extends NodeProperty<?>> nodeProperties = new LinkedList<NodeProperty<Node>>();
-
-            String description = template.marketplaceId + ", "
-                    + template.instanceType.tag();
-
-            LOGGER.info("generating slave for " + label + " " + description);
-
-            StratusLabSlave slave = new StratusLabSlave(label.getName(),
-                    description, template.remoteFS, template.getExecutors(),
-                    Node.Mode.NORMAL, label.getName(), launcher,
-                    retentionStrategy, nodeProperties);
-
-            String msg = "created node for " + displayName;
-            LOGGER.info(msg);
-
-            return slave;
-        }
-
-        private void createInstance() throws StratusLabException {
-
-            String msg = "creating instance for " + displayName;
-            LOGGER.info(msg);
-
-            info = StratusLabProxy.startInstance(cloud.params,
-                    template.marketplaceId);
-
-            msg = "created instance for " + displayName + " with " + info;
-
-            LOGGER.info(msg);
-        }
+                marketplaceId, type.tag());
     }
 
     @Extension
