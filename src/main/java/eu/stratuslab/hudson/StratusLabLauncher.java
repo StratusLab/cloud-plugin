@@ -1,136 +1,198 @@
 package eu.stratuslab.hudson;
 
-import static eu.stratuslab.hudson.ProcessUtils.runCommandWithResults;
+import static eu.stratuslab.hudson.ProcessUtils.runSystemCommandWithResults;
 import hudson.model.TaskListener;
+import hudson.slaves.CommandLauncher;
 import hudson.slaves.ComputerLauncher;
+import hudson.slaves.DelegatingComputerLauncher;
 import hudson.slaves.SlaveComputer;
 
-import java.io.PrintStream;
+import java.io.IOException;
+import java.util.logging.Logger;
 
-import eu.stratuslab.hudson.ProcessUtils.ProcessOutput;
+import eu.stratuslab.hudson.ProcessUtils.ProcessResult;
 
-public class StratusLabLauncher extends ComputerLauncher {
+public class StratusLabLauncher extends DelegatingComputerLauncher {
 
-    private final StratusLabCloud cloud;
+    private static final Logger LOGGER = Logger.getLogger(StratusLabCloud.class
+            .getName());
 
-    private final String marketplaceId;
+    private final StratusLabProxy.StratusLabParams cloudParams;
 
-    private int vmid = -1;
+    private final int vmid;
 
-    private String ip = null;
+    private final String ip;
 
-    public StratusLabLauncher(StratusLabCloud cloud, String marketplaceId) {
-        this.cloud = cloud;
-        this.marketplaceId = marketplaceId;
+    public StratusLabLauncher(StratusLabProxy.StratusLabParams cloud, int vmid,
+            String ip) {
+
+        super(getDelegate(vmid, ip));
+        this.cloudParams = cloud;
+        this.vmid = vmid;
+        this.ip = ip;
+    }
+
+    private static ComputerLauncher getDelegate(int vmid, String ip) {
+        String cmd = "ssh -o StrictHostKeyChecking=no root@" + ip
+                + " java -jar /tmp/slave.jar";
+        return new CommandLauncher(cmd);
     }
 
     @Override
-    public void launch(SlaveComputer computer, TaskListener listener) {
-
-        StratusLabComputer stratusLabComputer = (StratusLabComputer) computer;
-
-        PrintStream logger = listener.getLogger();
-
-        logger.println("using StratusLab launcher for " + computer.getName());
+    public void launch(SlaveComputer computer, TaskListener listener)
+            throws IOException, InterruptedException {
 
         try {
 
-            logger.println("StratusLabLauncher: running stratus-run-instance for "
-                    + computer.getName());
+            // wait until running
+            String msg;
+            int i = 0;
+            while (true) {
 
-            // stratus-run-instance
-            ProcessOutput results = runCommandWithResults(cloud.clientLocation,
-                    "stratus-run-instance", "--endpoint", cloud.endpoint,
-                    "--username", cloud.username, "--password", cloud.password,
-                    "--quiet", marketplaceId);
+                String status = StratusLabProxy.getInstanceStatus(cloudParams,
+                        String.valueOf(vmid));
+
+                msg = "status " + status + " for " + vmid + ", " + ip + ", "
+                        + computer.getName();
+                LOGGER.info(msg);
+                listener.getLogger().println(msg);
+
+                if ("Running".equalsIgnoreCase(status)) {
+                    break;
+                } else {
+                    i++;
+                    if (i > 100) {
+                        throw new StratusLabException(
+                                "timeout looking for running state");
+                    }
+                    try {
+                        Thread.sleep(15000);
+                    } catch (InterruptedException consumed) {
+
+                    }
+                }
+            }
+
+            // ssh into machine
+            i = 0;
+            while (true) {
+
+                String user = "root@" + ip;
+                ProcessResult results = runSystemCommandWithResults("ssh",
+                        "-o", "StrictHostKeyChecking=no", user, "/bin/true");
+
+                msg = "ssh exit code is " + results.rc + " with error "
+                        + results.error + " for " + vmid + ", " + ip + ", "
+                        + computer.getName();
+
+                LOGGER.info(msg);
+                listener.getLogger().println(msg);
+
+                if (results.rc == 0) {
+                    break;
+                } else {
+                    i++;
+                    if (i > 100) {
+                        throw new StratusLabException(
+                                "timeout trying to connect by ssh to " + vmid
+                                        + ", " + ip + ", " + computer.getName());
+                    }
+                    try {
+                        Thread.sleep(15000);
+                    } catch (InterruptedException consumed) {
+
+                    }
+                }
+            }
+
+            // install java on the machine
+            String user = "root@" + ip;
+            ProcessResult results = runSystemCommandWithResults("ssh", "-o",
+                    "StrictHostKeyChecking=no", user, "apt-get", "update");
+
+            msg = "update packages " + results.rc + " with error "
+                    + results.error + " for " + vmid + ", " + ip + ", "
+                    + computer.getName();
+            LOGGER.info(msg);
+            listener.getLogger().println(msg);
+
             if (results.rc != 0) {
                 throw new StratusLabException(results.error);
             }
-            parseForVmidAndIpAddress(results.output);
 
-            logger.println("StratusLabLauncher: allocated VM ID and IP Address are "
-                    + vmid + ", " + ip + " for " + computer.getName());
+            // install java on the machine
+            user = "root@" + ip;
 
-            // stratus-describe-instance
-            results = runCommandWithResults(cloud.clientLocation,
-                    "stratus-describe-instance", "--endpoint", cloud.endpoint,
-                    "--username", cloud.username, "--password", cloud.password,
-                    String.valueOf(vmid));
+            results = runSystemCommandWithResults("ssh", "-o",
+                    "StrictHostKeyChecking=no", user, "apt-get", "install",
+                    "-y", "--fix-missing", "openjdk-6-jdk");
+
+            msg = "java installation " + results.rc + " with error "
+                    + results.error + " for " + vmid + ", " + ip + ", "
+                    + computer.getName();
+            LOGGER.info(msg);
+            listener.getLogger().println(msg);
+
             if (results.rc != 0) {
                 throw new StratusLabException(results.error);
             }
-            parseForVmStatus(results.output);
+
+            // copy slave.jar to machine
+            user = "root@" + ip;
+            results = runSystemCommandWithResults("scp", "-o",
+                    "StrictHostKeyChecking=no", "/tmp/slave.jar", user
+                            + ":/tmp/slave.jar");
+
+            msg = "copy slave.jar " + results.rc + " with error "
+                    + results.error + " for " + vmid + ", " + ip + ", "
+                    + computer.getName();
+            LOGGER.info(msg);
+            listener.getLogger().println(msg);
+
+            if (results.rc != 0) {
+                throw new StratusLabException(results.error);
+            }
 
         } catch (StratusLabException e) {
+            LOGGER.severe(e.getMessage());
             listener.error(e.getMessage());
         }
 
-        // status until running
-        // ping
-        // ssh into machine
+        super.launch(computer, listener);
 
-    }
-
-    private void parseForVmidAndIpAddress(String output)
-            throws StratusLabException {
-        String[] fields = output.split("\\s*,\\s*");
-        if (fields.length != 2) {
-            throw new StratusLabException(
-                    "wrong number of fields from stratus-run-instance: "
-                            + fields.length);
-        }
-        try {
-            vmid = Integer.parseInt(fields[0]);
-        } catch (IllegalArgumentException e) {
-            throw new StratusLabException("extracted VM ID is not an integer: "
-                    + fields[0]);
-        }
-        ip = fields[1];
-    }
-
-    private String parseForVmStatus(String output) throws StratusLabException {
-        // FIXME: Need real implementation.
-        return "running";
     }
 
     @Override
     public void beforeDisconnect(SlaveComputer computer, TaskListener listener) {
 
-        PrintStream logger = listener.getLogger();
-
-        logger.println("StratusLab launcher: no-op for beforeDisconnect on "
-                + computer.getName());
+        LOGGER.info("beforeDisconnect no-op " + computer.getName());
 
     }
 
     @Override
     public void afterDisconnect(SlaveComputer computer, TaskListener listener) {
 
-        PrintStream logger = listener.getLogger();
-
-        logger.println("StratusLab launcher: running stratus-kill-instance on "
-                + vmid + ", " + computer.getName());
+        String msg = "killing instance " + vmid + ", " + ip + ", "
+                + computer.getName();
+        LOGGER.info(msg);
+        listener.getLogger().println(msg);
 
         try {
 
-            // stratus-kill-instance
-            ProcessOutput results = runCommandWithResults(cloud.clientLocation,
-                    "stratus-kill-instance", "--endpoint", cloud.endpoint,
-                    "--username", cloud.username, "--password", cloud.password,
-                    "--quiet", String.valueOf(vmid));
-            if (results.rc != 0) {
-                throw new StratusLabException(results.error);
-            }
+            StratusLabProxy.killInstance(cloudParams, String.valueOf(vmid));
 
         } catch (StratusLabException e) {
+            LOGGER.severe(e.getMessage());
             listener.error(e.getMessage());
         }
 
     }
 
+    // TODO: Is it necessary to override this?
     @Override
     public boolean isLaunchSupported() {
         // TODO: Is this correct? What is a programmatic launch?
         return true;
     }
+
 }

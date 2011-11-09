@@ -26,18 +26,22 @@ public class SlaveTemplate implements Describable<SlaveTemplate> {
         C1_MEDIUM("c1.medium", 1, 256, 1024), //
         C1_XLARGE("c1.xlarge", 4, 2048, 2048);
 
-        private final String name;
+        private final String tag;
         private final int cpu;
         private final int ramMB;
         private final int swapMB;
         private final String label;
 
-        private InstanceTypes(String name, int cpu, int ramMB, int swapMB) {
-            this.name = name;
+        private InstanceTypes(String tag, int cpu, int ramMB, int swapMB) {
+            this.tag = tag;
             this.cpu = cpu;
             this.ramMB = ramMB;
             this.swapMB = swapMB;
             label = createLabel();
+        }
+
+        public String tag() {
+            return tag;
         }
 
         public String label() {
@@ -46,7 +50,7 @@ public class SlaveTemplate implements Describable<SlaveTemplate> {
 
         private String createLabel() {
             StringBuilder sb = new StringBuilder();
-            sb.append(name);
+            sb.append(tag);
             sb.append(" (");
             sb.append(cpu);
             sb.append(" CPU, ");

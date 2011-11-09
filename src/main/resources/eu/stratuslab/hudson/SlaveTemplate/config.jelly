@@ -23,6 +23,7 @@
     <f:entry title="${%Init Script}" field="initScript">
       <f:textarea />
     </f:entry>
+
     <f:advanced>
       <f:entry title="${%Context}" field="context">
         <f:textarea />

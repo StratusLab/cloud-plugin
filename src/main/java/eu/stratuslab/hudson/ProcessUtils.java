@@ -1,18 +1,31 @@
 package eu.stratuslab.hudson;
 
+import java.io.BufferedInputStream;
+import java.io.Closeable;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.io.Reader;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
-import java.util.Scanner;
+import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.Callable;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Future;
+import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
+import java.util.logging.Logger;
 
 public final class ProcessUtils {
 
     private static final String EMPTY_STRING = "";
 
     private static final String SPACE = " ";
+
+    private static final int BUFFER_SIZE = 2048;
 
     private ProcessUtils() {
 
@@ -21,7 +34,7 @@ public final class ProcessUtils {
     public static void runCommand(String clientLocation, String cmd,
             String... options) throws StratusLabException {
 
-        ProcessOutput results = runCommandWithResults(clientLocation, cmd,
+        ProcessResult results = runCommandWithResults(clientLocation, cmd,
                 options);
 
         if (results.rc != 0) {
@@ -32,8 +45,10 @@ public final class ProcessUtils {
 
     }
 
-    public static ProcessOutput runCommandWithResults(String clientLocation,
+    public static ProcessResult runCommandWithResults(String clientLocation,
             String cmd, String... options) throws StratusLabException {
+
+        Logger logger = Logger.getLogger(StratusLabCloud.class.getName());
 
         if (clientLocation == null) {
             throw new StratusLabException("client location cannot be null");
@@ -72,13 +87,9 @@ public final class ProcessUtils {
 
         Process process = null;
         try {
-            process = pb.start();
-            int rc = process.waitFor();
-            return new ProcessOutput(fullCmd.toString(), rc,
-                    process.getInputStream(), process.getErrorStream());
-        } catch (InterruptedException e) {
-            throw new StratusLabException(e.getMessage());
+            return new ProcessResult(fullCmd.toString(), pb.start());
         } catch (IOException e) {
+            logger.severe(e.getMessage());
             throw new StratusLabException(e.getMessage());
         } finally {
             if (process != null) {
@@ -88,8 +99,67 @@ public final class ProcessUtils {
 
     }
 
-    public static String convertStreamToString(InputStream is) {
-        return new Scanner(is).useDelimiter("\\A").next();
+    public static ProcessResult runSystemCommandWithResults(String cmd,
+            String... options) throws StratusLabException {
+
+        Logger logger = Logger.getLogger(StratusLabCloud.class.getName());
+
+        ProcessBuilder pb = new ProcessBuilder();
+
+        List<String> cmdElements = new LinkedList<String>();
+        cmdElements.add(cmd);
+
+        StringBuilder fullCmd = new StringBuilder(cmd);
+        for (String option : options) {
+            cmdElements.add(option);
+            fullCmd.append(SPACE);
+            fullCmd.append(option);
+        }
+
+        pb.command(cmdElements);
+
+        Process process = null;
+        try {
+            return new ProcessResult(fullCmd.toString(), pb.start());
+        } catch (IOException e) {
+            logger.severe(e.getMessage());
+            throw new StratusLabException(e.getMessage());
+        } finally {
+            if (process != null) {
+                process.destroy();
+            }
+        }
+
+    }
+
+    public static String slurp(InputStream is) {
+
+        Logger logger = Logger.getLogger(StratusLabCloud.class.getName());
+
+        InputStream bis = new BufferedInputStream(is);
+
+        final char[] buffer = new char[BUFFER_SIZE];
+
+        StringBuilder sb = new StringBuilder(BUFFER_SIZE);
+
+        Reader reader = null;
+        try {
+
+            reader = new InputStreamReader(bis);
+
+            int nbytes = reader.read(buffer, 0, BUFFER_SIZE);
+            while (nbytes != -1) {
+                sb.append(buffer, 0, nbytes);
+                nbytes = reader.read(buffer, 0, BUFFER_SIZE);
+            }
+
+        } catch (IOException consumed) {
+            logger.severe(consumed.getMessage());
+        } finally {
+            closeReliably(reader);
+        }
+
+        return sb.toString();
     }
 
     public static File getRootDirectory(String clientLocation)
@@ -157,7 +227,15 @@ public final class ProcessUtils {
 
     }
 
-    public static class ProcessOutput {
+    public static class ProcessResult {
+
+        private static final int POOL_SIZE = 8;
+        private static final int POOL_MAX_SIZE = POOL_SIZE * 2;
+        private static final long KEEP_ALIVE_TIME = 1; // 1 minute
+        private static final BlockingQueue<Runnable> QUEUE = new LinkedBlockingQueue<Runnable>();
+        private static final ThreadPoolExecutor EXECUTOR = new ThreadPoolExecutor(
+                POOL_SIZE, POOL_MAX_SIZE, KEEP_ALIVE_TIME, TimeUnit.MINUTES,
+                QUEUE);
 
         public final String cmd;
 
@@ -167,15 +245,76 @@ public final class ProcessUtils {
 
         public final String error;
 
-        public ProcessOutput(String cmd, int rc, InputStream processOutput,
-                InputStream processError) {
+        public ProcessResult(String cmd, Process process) {
 
             this.cmd = cmd;
-            this.rc = rc;
-            output = convertStreamToString(processOutput);
-            error = convertStreamToString(processError);
+
+            Logger logger = Logger.getLogger(StratusLabCloud.class.getName());
+
+            Future<String> futureOutput = asyncSlurp(process.getInputStream());
+            Future<String> futureError = asyncSlurp(process.getErrorStream());
+
+            String o = EMPTY_STRING;
+            try {
+                logger.fine("waiting for stdout: " + cmd);
+                o = futureOutput.get();
+            } catch (InterruptedException consumed) {
+                logger.severe(consumed.getMessage());
+            } catch (ExecutionException consumed) {
+                logger.severe(consumed.getMessage());
+            }
+            output = o;
+
+            String e = EMPTY_STRING;
+            try {
+                logger.fine("waiting for stderr: " + cmd);
+                e = futureError.get();
+            } catch (InterruptedException consumed) {
+                logger.severe(consumed.getMessage());
+            } catch (ExecutionException consumed) {
+                logger.severe(consumed.getMessage());
+            }
+            error = e;
+
+            logger.fine("waiting for process: " + cmd);
+
+            int r = -1;
+            try {
+                r = process.waitFor();
+            } catch (InterruptedException consumed) {
+                logger.severe(consumed.getMessage());
+            }
+            rc = r;
+
+            logger.fine("finished process: " + cmd + " " + rc);
         }
 
+        public static Future<String> asyncSlurp(InputStream is) {
+            return EXECUTOR.submit(new SlurpCallable(is));
+        }
+
+        public static class SlurpCallable implements Callable<String> {
+
+            private final InputStream is;
+
+            public SlurpCallable(InputStream is) {
+                this.is = is;
+            }
+
+            public String call() throws Exception {
+                return slurp(is);
+            }
+        }
+
+    }
+
+    public static void closeReliably(Closeable closeable) {
+        if (closeable != null) {
+            try {
+                closeable.close();
+            } catch (IOException consumed) {
+            }
+        }
     }
 
 }

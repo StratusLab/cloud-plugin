@@ -4,8 +4,8 @@ import static eu.stratuslab.hudson.CloudParameterUtils.isEmptyStringOrNull;
 import static eu.stratuslab.hudson.CloudParameterUtils.isPositiveInteger;
 import static eu.stratuslab.hudson.CloudParameterUtils.validateClientLocation;
 import static eu.stratuslab.hudson.CloudParameterUtils.validateEndpoint;
-import static eu.stratuslab.hudson.ProcessUtils.runCommand;
 import hudson.Extension;
+import hudson.model.Computer;
 import hudson.model.Descriptor;
 import hudson.model.Hudson;
 import hudson.model.Label;
@@ -28,23 +28,26 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.Callable;
 import java.util.concurrent.Future;
-import java.util.concurrent.FutureTask;
-import java.util.logging.Level;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.logging.Logger;
 
 import org.kohsuke.stapler.DataBoundConstructor;
 import org.kohsuke.stapler.QueryParameter;
+
+import eu.stratuslab.hudson.SlaveTemplate.InstanceTypes;
 
 public class StratusLabCloud extends AbstractCloudImpl {
 
     private static final Logger LOGGER = Logger.getLogger(StratusLabCloud.class
             .getName());
 
-    private static final int IDLE_MINUTES = 1;
+    private static final int IDLE_MINUTES = 10;
 
     private static final String CLOUD_NAME = "StratusLab Cloud";
 
     private static final String EMPTY_STRING = "";
+
+    public final StratusLabProxy.StratusLabParams params;
 
     public final String clientLocation;
 
@@ -56,29 +59,45 @@ public class StratusLabCloud extends AbstractCloudImpl {
 
     public final String instanceLimit;
 
+    public final int instanceLimitInt;
+
     public final List<SlaveTemplate> templates;
 
     private final Map<String, SlaveTemplate> labelToTemplateMap;
+
+    private static final AtomicInteger serial = new AtomicInteger(0);
 
     @DataBoundConstructor
     public StratusLabCloud(String clientLocation, String endpoint,
             String username, String password, String instanceLimit,
             List<SlaveTemplate> templates) {
+
         super(CLOUD_NAME, instanceLimit);
 
         this.clientLocation = clientLocation;
         this.endpoint = endpoint;
         this.username = username;
         this.password = password;
+
+        params = new StratusLabProxy.StratusLabParams(clientLocation, endpoint,
+                username, password);
+
         this.instanceLimit = instanceLimit;
         this.templates = copyToImmutableList(templates);
 
-        labelToTemplateMap = createLabelToTemplateMap(this.templates);
+        labelToTemplateMap = mapLabelsToTemplates(this.templates);
 
-        String msg = "StratusLab cloud: configuration updated with "
-                + labelToTemplateMap.size() + " label(s) and "
-                + templates.size() + " slave template(s)";
-        LOGGER.log(Level.INFO, msg);
+        int value = 1;
+        try {
+            value = Integer.parseInt(instanceLimit);
+        } catch (IllegalArgumentException e) {
+        }
+        instanceLimitInt = value;
+
+        String msg = "configuration updated with " + labelToTemplateMap.size()
+                + " label(s) and " + this.templates.size()
+                + " slave template(s)";
+        LOGGER.info(msg);
     }
 
     private List<SlaveTemplate> copyToImmutableList(
@@ -91,7 +110,7 @@ public class StratusLabCloud extends AbstractCloudImpl {
         return Collections.unmodifiableList(list);
     }
 
-    private Map<String, SlaveTemplate> createLabelToTemplateMap(
+    private Map<String, SlaveTemplate> mapLabelsToTemplates(
             List<SlaveTemplate> templates) {
 
         Map<String, SlaveTemplate> map = new HashMap<String, SlaveTemplate>();
@@ -129,75 +148,121 @@ public class StratusLabCloud extends AbstractCloudImpl {
         // for a node without a label. This implementation doesn't support
         // that.
         if (label != null) {
-            String stringLabel = label.getName();
-            SlaveTemplate template = labelToTemplateMap.get(stringLabel);
+            SlaveTemplate template = labelToTemplateMap.get(label.getName());
 
-            String id = template.marketplaceId;
-            String type = template.instanceType.name();
-            int executorsPerInstance = template.getExecutors();
+            int executors = template.getExecutors();
 
-            String displayName = stringLabel + " (" + id + ", " + type + ")";
+            String displayName = generateDisplayName(label,
+                    template.marketplaceId, template.instanceType);
 
-            for (int i = 0; i < excessWorkload; i += executorsPerInstance) {
-                PlannedNode node = new PlannedNode(displayName, getNodeCreator(
-                        template, stringLabel), executorsPerInstance);
-                nodes.add(node);
+            int numberOfInstances = StratusLabProxy
+                    .getNumberOfDefinedInstances(params);
+
+            for (int i = 0; i < excessWorkload; i += executors) {
+                SlaveCreator c = new SlaveCreator(template, this, label,
+                        displayName);
+                Future<Node> futureNode = Computer.threadPoolForRemoting
+                        .submit(c);
+                if (numberOfInstances < instanceLimitInt) {
+                    nodes.add(new PlannedNode(displayName, futureNode,
+                            executors));
+                    numberOfInstances++;
+                } else {
+                    LOGGER.warning("instance limit (" + instanceLimitInt
+                            + ") exceeded not provisioning node");
+                }
             }
         }
 
-        String msg = "StratusLab cloud: allocating " + nodes.size()
-                + " node(s)";
-        LOGGER.log(Level.INFO, msg);
+        String msg = "allocating " + nodes.size() + " node(s)";
+        LOGGER.info(msg);
         return nodes;
     }
 
-    public Future<Node> getNodeCreator(SlaveTemplate template, String label) {
-        VmCreator creator = new VmCreator(template, this, label);
-        return new FutureTask<Node>(creator);
+    public static String generateDisplayName(Label label, String marketplaceId,
+            InstanceTypes type) {
+
+        final String format = "%s-%d (%s, %s)";
+        return String.format(format, label.getName(), serial.incrementAndGet(),
+                marketplaceId, type.label());
     }
 
-    public static class VmCreator implements Callable<Node> {
+    public static class SlaveCreator implements Callable<Node> {
+
+        private static final Logger LOGGER = Logger
+                .getLogger(StratusLabCloud.class.getName());
 
         private final SlaveTemplate template;
 
         private final StratusLabCloud cloud;
 
-        private final String label;
+        private final Label label;
 
-        public VmCreator(SlaveTemplate template, StratusLabCloud cloud,
-                String label) {
+        private final String displayName;
+
+        private int vmid;
+
+        private String ip;
+
+        public SlaveCreator(SlaveTemplate template, StratusLabCloud cloud,
+                Label label, String displayName) {
             this.template = template;
             this.cloud = cloud;
             this.label = label;
+            this.displayName = displayName;
         }
 
-        public Node call() throws IOException, Descriptor.FormException {
+        public Node call() throws IOException, StratusLabException,
+                Descriptor.FormException {
 
-            Logger logger = Logger.getLogger(StratusLabCloud.class.getName());
+            createInstance();
 
-            ComputerLauncher launcher = new StratusLabLauncher(cloud,
-                    template.marketplaceId);
+            ComputerLauncher launcher = new StratusLabLauncher(cloud.params,
+                    vmid, ip);
 
             CloudRetentionStrategy retentionStrategy = new CloudRetentionStrategy(
                     IDLE_MINUTES);
 
             List<? extends NodeProperty<?>> nodeProperties = new LinkedList<NodeProperty<Node>>();
 
-            String name = template.labelString;
             String description = template.marketplaceId + ", "
-                    + template.instanceType.name();
+                    + template.instanceType.tag();
 
-            StratusLabSlave slave = new StratusLabSlave(name, description,
-                    template.remoteFS, template.getExecutors(),
-                    Node.Mode.NORMAL, name, launcher, retentionStrategy,
-                    nodeProperties);
+            LOGGER.info("generating slave for " + label + " " + description);
 
-            String msg = "StratusLab cloud: generated node for label " + label
-                    + " with Marketplace Id " + template.marketplaceId;
-            logger.log(Level.INFO, msg);
+            StratusLabSlave slave = new StratusLabSlave(label.getName(),
+                    description, template.remoteFS, template.getExecutors(),
+                    Node.Mode.NORMAL, label.getName(), launcher,
+                    retentionStrategy, nodeProperties);
+
+            String msg = "created node for " + displayName;
+            LOGGER.info(msg);
 
             return slave;
+        }
 
+        private void createInstance() throws StratusLabException {
+
+            String msg = "creating instance for " + displayName;
+            LOGGER.info(msg);
+
+            String[] fields = StratusLabProxy.startInstance(cloud.params,
+                    template.marketplaceId);
+
+            ip = fields[1];
+
+            vmid = -1;
+            try {
+                vmid = Integer.parseInt(fields[0]);
+            } catch (IllegalArgumentException e) {
+                throw new StratusLabException(
+                        "extracted VM ID is not an integer: " + fields[0]);
+            }
+
+            msg = "created instance for " + displayName + " with " + vmid
+                    + ", " + ip;
+
+            LOGGER.info(msg);
         }
     }
 
@@ -250,10 +315,11 @@ public class StratusLabCloud extends AbstractCloudImpl {
                 @QueryParameter String endpoint,
                 @QueryParameter String username, @QueryParameter String password) {
 
+            StratusLabProxy.StratusLabParams params = new StratusLabProxy.StratusLabParams(
+                    clientLocation, endpoint, username, password);
+
             try {
-                runCommand(clientLocation, "stratus-describe-instance",
-                        "--endpoint", endpoint, "--username", username,
-                        "--password", password);
+                StratusLabProxy.testConnection(params);
             } catch (StratusLabException e) {
                 return FormValidation.error(e.getMessage());
             }
