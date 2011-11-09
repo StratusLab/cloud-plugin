@@ -36,11 +36,20 @@ public final class SlaveParameterUtils {
         }
     }
 
-    public static FormValidation validateExecutors(String executors) {
+    public static FormValidation validateExecutors(int executors) {
         if (isPositiveInteger(executors)) {
             return FormValidation.ok();
         } else {
             return FormValidation.error("executors must be positive integer");
+        }
+    }
+
+    public static FormValidation validateIdleMinutes(int idleMinutes) {
+        if (isPositiveInteger(idleMinutes)) {
+            return FormValidation.ok();
+        } else {
+            return FormValidation
+                    .error("idle minutes must be positive integer");
         }
     }
 

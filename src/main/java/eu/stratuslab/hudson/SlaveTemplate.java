@@ -2,6 +2,7 @@ package eu.stratuslab.hudson;
 
 import static eu.stratuslab.hudson.utils.SlaveParameterUtils.createLabelList;
 import static eu.stratuslab.hudson.utils.SlaveParameterUtils.validateExecutors;
+import static eu.stratuslab.hudson.utils.SlaveParameterUtils.validateIdleMinutes;
 import static eu.stratuslab.hudson.utils.SlaveParameterUtils.validateLabelString;
 import static eu.stratuslab.hudson.utils.SlaveParameterUtils.validateMarketplaceId;
 import static eu.stratuslab.hudson.utils.SlaveParameterUtils.validateSshPort;
@@ -129,8 +130,12 @@ public class SlaveTemplate implements Describable<SlaveTemplate> {
             return validateLabelString(labelString);
         }
 
-        public FormValidation doCheckExecutors(@QueryParameter String executors) {
+        public FormValidation doCheckExecutors(@QueryParameter int executors) {
             return validateExecutors(executors);
+        }
+
+        public FormValidation doCheckIdleMinutes(@QueryParameter int idleMinutes) {
+            return validateIdleMinutes(idleMinutes);
         }
 
         public FormValidation doCheckSshPort(@QueryParameter int sshPort) {
