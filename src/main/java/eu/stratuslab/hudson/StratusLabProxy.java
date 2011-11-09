@@ -10,7 +10,6 @@ import java.io.StringReader;
 import eu.stratuslab.hudson.utils.ProcessUtils;
 import eu.stratuslab.hudson.utils.ProcessUtils.ProcessResult;
 
-
 /*
  * This class handles the interactions between Hudson and a StratusLab cloud infrastructure.
  */
@@ -30,7 +29,7 @@ public class StratusLabProxy {
         runCommand(params.clientLocation, "stratus-describe-instance", "--help");
     }
 
-    public static String[] startInstance(StratusLabParams params,
+    public static InstanceInfo startInstance(StratusLabParams params,
             String marketplaceId) throws StratusLabException {
 
         ProcessResult results = runCommandWithResults(params.clientLocation,
@@ -92,7 +91,7 @@ public class StratusLabProxy {
         return definedInstances;
     }
 
-    public static String[] parseForVmidAndIpAddress(String output)
+    public static InstanceInfo parseForVmidAndIpAddress(String output)
             throws StratusLabException {
         String[] fields = output.split("\\s*,\\s*");
         if (fields.length != 2) {
@@ -109,7 +108,7 @@ public class StratusLabProxy {
         }
         String ip = fields[1].trim();
 
-        return new String[] { String.valueOf(vmid), ip };
+        return new InstanceInfo(vmid, ip);
     }
 
     public static String parseForVmStatus(String output, String vmid)
@@ -138,6 +137,21 @@ public class StratusLabProxy {
         }
 
         return "unknown";
+    }
+
+    public static class InstanceInfo {
+
+        public final int vmid;
+        public final String ip;
+
+        public InstanceInfo(int vmid, String ip) {
+            this.vmid = vmid;
+            this.ip = ip;
+        }
+
+        public String toString() {
+            return String.format("%d, %s", vmid, ip);
+        }
     }
 
     public static class StratusLabParams {

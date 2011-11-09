@@ -35,6 +35,7 @@ import org.kohsuke.stapler.DataBoundConstructor;
 import org.kohsuke.stapler.QueryParameter;
 
 import eu.stratuslab.hudson.SlaveTemplate.InstanceTypes;
+import eu.stratuslab.hudson.StratusLabProxy.InstanceInfo;
 
 public class StratusLabCloud extends AbstractCloudImpl {
 
@@ -44,8 +45,6 @@ public class StratusLabCloud extends AbstractCloudImpl {
     private static final int IDLE_MINUTES = 10;
 
     private static final String CLOUD_NAME = "StratusLab Cloud";
-
-    private static final String EMPTY_STRING = "";
 
     public final StratusLabProxy.StratusLabParams params;
 
@@ -191,9 +190,7 @@ public class StratusLabCloud extends AbstractCloudImpl {
 
         private final String displayName;
 
-        private int vmid;
-
-        private String ip;
+        private InstanceInfo info;
 
         public SlaveCreator(SlaveTemplate template, StratusLabCloud cloud,
                 Label label, String displayName) {
@@ -209,7 +206,7 @@ public class StratusLabCloud extends AbstractCloudImpl {
             createInstance();
 
             ComputerLauncher launcher = new StratusLabLauncher(cloud.params,
-                    vmid, ip);
+                    info);
 
             CloudRetentionStrategy retentionStrategy = new CloudRetentionStrategy(
                     IDLE_MINUTES);
@@ -237,21 +234,10 @@ public class StratusLabCloud extends AbstractCloudImpl {
             String msg = "creating instance for " + displayName;
             LOGGER.info(msg);
 
-            String[] fields = StratusLabProxy.startInstance(cloud.params,
+            info = StratusLabProxy.startInstance(cloud.params,
                     template.marketplaceId);
 
-            ip = fields[1];
-
-            vmid = -1;
-            try {
-                vmid = Integer.parseInt(fields[0]);
-            } catch (IllegalArgumentException e) {
-                throw new StratusLabException(
-                        "extracted VM ID is not an integer: " + fields[0]);
-            }
-
-            msg = "created instance for " + displayName + " with " + vmid
-                    + ", " + ip;
+            msg = "created instance for " + displayName + " with " + info;
 
             LOGGER.info(msg);
         }
@@ -291,11 +277,11 @@ public class StratusLabCloud extends AbstractCloudImpl {
         }
 
         public FormValidation doCheckInstanceLimit(
-                @QueryParameter String instanceLimit) {
-            if (!isPositiveInteger(instanceLimit)
-                    && !EMPTY_STRING.equals(instanceLimit)) {
+                @QueryParameter int instanceLimit) {
+
+            if (!isPositiveInteger(instanceLimit)) {
                 return FormValidation
-                        .error("instance cap must be a valid positive integer or blank");
+                        .error("instance limit must be a positive integer");
             } else {
                 return FormValidation.ok();
             }

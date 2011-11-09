@@ -98,6 +98,10 @@ public final class CloudParameterUtils {
         }
     }
 
+    public static boolean isPositiveInteger(int i) {
+        return (i > 0);
+    }
+
     public static FormValidation validateClientLocation(String clientLocation) {
 
         try {

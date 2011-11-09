@@ -10,9 +10,8 @@ import hudson.slaves.SlaveComputer;
 import java.io.IOException;
 import java.util.logging.Logger;
 
+import eu.stratuslab.hudson.StratusLabProxy.InstanceInfo;
 import eu.stratuslab.hudson.utils.ProcessUtils.ProcessResult;
-
-
 
 public class StratusLabLauncher extends DelegatingComputerLauncher {
 
@@ -21,21 +20,18 @@ public class StratusLabLauncher extends DelegatingComputerLauncher {
 
     private final StratusLabProxy.StratusLabParams cloudParams;
 
-    private final int vmid;
+    private final InstanceInfo info;
 
-    private final String ip;
+    public StratusLabLauncher(StratusLabProxy.StratusLabParams cloud,
+            InstanceInfo info) {
 
-    public StratusLabLauncher(StratusLabProxy.StratusLabParams cloud, int vmid,
-            String ip) {
-
-        super(getDelegate(vmid, ip));
+        super(getDelegate(info));
         this.cloudParams = cloud;
-        this.vmid = vmid;
-        this.ip = ip;
+        this.info = info;
     }
 
-    private static ComputerLauncher getDelegate(int vmid, String ip) {
-        String cmd = "ssh -o StrictHostKeyChecking=no root@" + ip
+    private static ComputerLauncher getDelegate(InstanceInfo info) {
+        String cmd = "ssh -o StrictHostKeyChecking=no root@" + info.ip
                 + " java -jar /tmp/slave.jar";
         return new CommandLauncher(cmd);
     }
@@ -52,9 +48,9 @@ public class StratusLabLauncher extends DelegatingComputerLauncher {
             while (true) {
 
                 String status = StratusLabProxy.getInstanceStatus(cloudParams,
-                        String.valueOf(vmid));
+                        String.valueOf(info.vmid));
 
-                msg = "status " + status + " for " + vmid + ", " + ip + ", "
+                msg = "status " + status + " for " + info + " "
                         + computer.getName();
                 LOGGER.info(msg);
                 listener.getLogger().println(msg);
@@ -79,12 +75,12 @@ public class StratusLabLauncher extends DelegatingComputerLauncher {
             i = 0;
             while (true) {
 
-                String user = "root@" + ip;
+                String user = "root@" + info.ip;
                 ProcessResult results = runSystemCommandWithResults("ssh",
                         "-o", "StrictHostKeyChecking=no", user, "/bin/true");
 
                 msg = "ssh exit code is " + results.rc + " with error "
-                        + results.error + " for " + vmid + ", " + ip + ", "
+                        + results.error + " for " + info + ", "
                         + computer.getName();
 
                 LOGGER.info(msg);
@@ -96,8 +92,8 @@ public class StratusLabLauncher extends DelegatingComputerLauncher {
                     i++;
                     if (i > 100) {
                         throw new StratusLabException(
-                                "timeout trying to connect by ssh to " + vmid
-                                        + ", " + ip + ", " + computer.getName());
+                                "timeout trying to connect by ssh to " + info
+                                        + ", " + computer.getName());
                     }
                     try {
                         Thread.sleep(15000);
@@ -108,12 +104,12 @@ public class StratusLabLauncher extends DelegatingComputerLauncher {
             }
 
             // install java on the machine
-            String user = "root@" + ip;
+            String user = "root@" + info.ip;
             ProcessResult results = runSystemCommandWithResults("ssh", "-o",
                     "StrictHostKeyChecking=no", user, "apt-get", "update");
 
             msg = "update packages " + results.rc + " with error "
-                    + results.error + " for " + vmid + ", " + ip + ", "
+                    + results.error + " for " + info + ", "
                     + computer.getName();
             LOGGER.info(msg);
             listener.getLogger().println(msg);
@@ -123,14 +119,14 @@ public class StratusLabLauncher extends DelegatingComputerLauncher {
             }
 
             // install java on the machine
-            user = "root@" + ip;
+            user = "root@" + info.ip;
 
             results = runSystemCommandWithResults("ssh", "-o",
                     "StrictHostKeyChecking=no", user, "apt-get", "install",
                     "-y", "--fix-missing", "openjdk-6-jdk");
 
             msg = "java installation " + results.rc + " with error "
-                    + results.error + " for " + vmid + ", " + ip + ", "
+                    + results.error + " for " + info + ", "
                     + computer.getName();
             LOGGER.info(msg);
             listener.getLogger().println(msg);
@@ -140,13 +136,13 @@ public class StratusLabLauncher extends DelegatingComputerLauncher {
             }
 
             // copy slave.jar to machine
-            user = "root@" + ip;
+            user = "root@" + info.ip;
             results = runSystemCommandWithResults("scp", "-o",
                     "StrictHostKeyChecking=no", "/tmp/slave.jar", user
                             + ":/tmp/slave.jar");
 
             msg = "copy slave.jar " + results.rc + " with error "
-                    + results.error + " for " + vmid + ", " + ip + ", "
+                    + results.error + " for " + info + ", "
                     + computer.getName();
             LOGGER.info(msg);
             listener.getLogger().println(msg);
@@ -174,14 +170,14 @@ public class StratusLabLauncher extends DelegatingComputerLauncher {
     @Override
     public void afterDisconnect(SlaveComputer computer, TaskListener listener) {
 
-        String msg = "killing instance " + vmid + ", " + ip + ", "
-                + computer.getName();
+        String msg = "killing instance " + info + ", " + computer.getName();
         LOGGER.info(msg);
         listener.getLogger().println(msg);
 
         try {
 
-            StratusLabProxy.killInstance(cloudParams, String.valueOf(vmid));
+            StratusLabProxy
+                    .killInstance(cloudParams, String.valueOf(info.vmid));
 
         } catch (StratusLabException e) {
             LOGGER.severe(e.getMessage());
