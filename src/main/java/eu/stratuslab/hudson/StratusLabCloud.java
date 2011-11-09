@@ -140,8 +140,7 @@ public class StratusLabCloud extends AbstractCloudImpl {
                     .getNumberOfDefinedInstances(params);
 
             for (int i = 0; i < excessWorkload; i += template.executors) {
-                SlaveCreator c = new SlaveCreator(template, this, label,
-                        displayName);
+                SlaveCreator c = new SlaveCreator(template, params, label);
                 Future<Node> futureNode = Computer.threadPoolForRemoting
                         .submit(c);
                 if (numberOfInstances < instanceLimit) {

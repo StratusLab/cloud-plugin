@@ -160,32 +160,6 @@ public class StratusLabLauncher extends DelegatingComputerLauncher {
 
     }
 
-    @Override
-    public void beforeDisconnect(SlaveComputer computer, TaskListener listener) {
-
-        LOGGER.info("beforeDisconnect no-op " + computer.getName());
-
-    }
-
-    @Override
-    public void afterDisconnect(SlaveComputer computer, TaskListener listener) {
-
-        String msg = "killing instance " + info + ", " + computer.getName();
-        LOGGER.info(msg);
-        listener.getLogger().println(msg);
-
-        try {
-
-            StratusLabProxy
-                    .killInstance(cloudParams, String.valueOf(info.vmid));
-
-        } catch (StratusLabException e) {
-            LOGGER.severe(e.getMessage());
-            listener.error(e.getMessage());
-        }
-
-    }
-
     // TODO: Is it necessary to override this?
     @Override
     public boolean isLaunchSupported() {

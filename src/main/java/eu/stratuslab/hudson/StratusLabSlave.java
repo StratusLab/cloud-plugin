@@ -6,7 +6,6 @@ import hudson.model.Node;
 import hudson.slaves.AbstractCloudSlave;
 import hudson.slaves.CloudRetentionStrategy;
 import hudson.slaves.NodeProperty;
-import hudson.slaves.ComputerLauncher;
 
 import java.io.IOException;
 import java.util.List;
@@ -24,23 +23,31 @@ public class StratusLabSlave extends AbstractCloudSlave {
 
     private final StratusLabParams cloudParams;
 
-    private final InstanceInfo info;
+    private InstanceInfo info;
 
     private StratusLabComputer computer;
 
-    public StratusLabSlave(StratusLabParams cloudParams, InstanceInfo info,
-            String name, String nodeDescription, String remoteFS,
-            int numExecutors, Node.Mode mode, String labelString,
-            ComputerLauncher launcher,
-            CloudRetentionStrategy retentionStrategy,
-            List<? extends NodeProperty<?>> nodeProperties)
-            throws FormException, IOException {
+    private final SlaveTemplate template;
+
+    public StratusLabSlave(StratusLabParams cloudParams,
+            SlaveTemplate template, String name, String nodeDescription,
+            String remoteFS, int numExecutors, Node.Mode mode,
+            String labelString, List<? extends NodeProperty<?>> nodeProperties)
+            throws FormException, IOException, StratusLabException {
 
         super(name, nodeDescription, remoteFS, numExecutors, mode, labelString,
-                launcher, retentionStrategy, nodeProperties);
+                null, null, nodeProperties);
 
         this.cloudParams = cloudParams;
-        this.info = info;
+        this.template = template;
+
+        createInstance();
+
+        setLauncher(new StratusLabLauncher(cloudParams, info));
+
+        this.setRetentionStrategy(new CloudRetentionStrategy(
+                template.idleMinutes));
+
     }
 
     @Override
@@ -71,6 +78,18 @@ public class StratusLabSlave extends AbstractCloudSlave {
             listener.error(e.getMessage());
         }
 
+    }
+
+    private void createInstance() throws StratusLabException {
+
+        String msg = "creating instance ";
+        LOGGER.info(msg);
+
+        info = StratusLabProxy.startInstance(cloudParams,
+                template.marketplaceId);
+
+        msg = "created instance with " + info;
+        LOGGER.info(msg);
     }
 
 }
