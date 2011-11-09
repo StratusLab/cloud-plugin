@@ -18,6 +18,7 @@ import hudson.slaves.AbstractCloudImpl;
 import hudson.slaves.ComputerLauncher;
 import hudson.util.FormValidation;
 
+import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -57,9 +58,7 @@ public class StratusLabCloud extends AbstractCloudImpl {
 
     public final String password;
 
-    public final String instanceLimit;
-
-    public final int instanceLimitInt;
+    public final int instanceLimit;
 
     public final List<SlaveTemplate> templates;
 
@@ -69,10 +68,10 @@ public class StratusLabCloud extends AbstractCloudImpl {
 
     @DataBoundConstructor
     public StratusLabCloud(String clientLocation, String endpoint,
-            String username, String password, String instanceLimit,
+            String username, String password, int instanceLimit,
             List<SlaveTemplate> templates) {
 
-        super(CLOUD_NAME, instanceLimit);
+        super(CLOUD_NAME, String.valueOf(instanceLimit));
 
         this.clientLocation = clientLocation;
         this.endpoint = endpoint;
@@ -86,13 +85,6 @@ public class StratusLabCloud extends AbstractCloudImpl {
         this.templates = copyToImmutableList(templates);
 
         labelToTemplateMap = mapLabelsToTemplates(this.templates);
-
-        int value = 1;
-        try {
-            value = Integer.parseInt(instanceLimit);
-        } catch (IllegalArgumentException e) {
-        }
-        instanceLimitInt = value;
 
         String msg = "configuration updated with " + labelToTemplateMap.size()
                 + " label(s) and " + this.templates.size()
@@ -163,12 +155,12 @@ public class StratusLabCloud extends AbstractCloudImpl {
                         displayName);
                 Future<Node> futureNode = Computer.threadPoolForRemoting
                         .submit(c);
-                if (numberOfInstances < instanceLimitInt) {
+                if (numberOfInstances < instanceLimit) {
                     nodes.add(new PlannedNode(displayName, futureNode,
                             executors));
                     numberOfInstances++;
                 } else {
-                    LOGGER.warning("instance limit (" + instanceLimitInt
+                    LOGGER.warning("instance limit (" + instanceLimit
                             + ") exceeded not provisioning node");
                 }
             }
