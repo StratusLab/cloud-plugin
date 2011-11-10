@@ -2,6 +2,7 @@ package eu.stratuslab.hudson;
 
 import static eu.stratuslab.hudson.utils.ProcessUtils.runSystemCommandWithResults;
 import hudson.model.TaskListener;
+import hudson.model.Hudson;
 import hudson.slaves.CommandLauncher;
 import hudson.slaves.ComputerLauncher;
 import hudson.slaves.DelegatingComputerLauncher;
@@ -9,6 +10,10 @@ import hudson.slaves.SlaveComputer;
 
 import java.io.IOException;
 import java.util.logging.Logger;
+
+import com.trilead.ssh2.Connection;
+import com.trilead.ssh2.SCPClient;
+import com.trilead.ssh2.ServerHostKeyVerifier;
 
 import eu.stratuslab.hudson.StratusLabProxy.InstanceInfo;
 import eu.stratuslab.hudson.utils.ProcessUtils.ProcessResult;
@@ -22,16 +27,17 @@ public class StratusLabLauncher extends DelegatingComputerLauncher {
 
     private final InstanceInfo info;
 
-    public StratusLabLauncher(CloudParameters cloud, InstanceInfo info) {
+    public StratusLabLauncher(CloudParameters cloudParams, InstanceInfo info) {
 
-        super(getDelegate(info));
-        this.cloudParams = cloud;
+        super(getDelegate(cloudParams, info));
+        this.cloudParams = cloudParams;
         this.info = info;
     }
 
-    private static ComputerLauncher getDelegate(InstanceInfo info) {
-        String cmd = "ssh -o StrictHostKeyChecking=no root@" + info.ip
-                + " java -jar /tmp/slave.jar";
+    private static ComputerLauncher getDelegate(CloudParameters cloudParams,
+            InstanceInfo info) {
+        String cmd = "ssh -o StrictHostKeyChecking=no " + cloudParams.username
+                + "@" + info.ip + " java -jar /tmp/slave.jar";
         return new CommandLauncher(cmd);
     }
 
@@ -74,7 +80,7 @@ public class StratusLabLauncher extends DelegatingComputerLauncher {
             i = 0;
             while (true) {
 
-                String user = "root@" + info.ip;
+                String user = cloudParams.username + "@" + info.ip;
                 ProcessResult results = runSystemCommandWithResults("ssh",
                         "-o", "StrictHostKeyChecking=no", user, "/bin/true");
 
@@ -103,7 +109,7 @@ public class StratusLabLauncher extends DelegatingComputerLauncher {
             }
 
             // install java on the machine
-            String user = "root@" + info.ip;
+            String user = cloudParams.username + "@" + info.ip;
             ProcessResult results = runSystemCommandWithResults("ssh", "-o",
                     "StrictHostKeyChecking=no", user, "apt-get", "update");
 
@@ -118,7 +124,7 @@ public class StratusLabLauncher extends DelegatingComputerLauncher {
             }
 
             // install java on the machine
-            user = "root@" + info.ip;
+            user = cloudParams.username + "@" + info.ip;
 
             results = runSystemCommandWithResults("ssh", "-o",
                     "StrictHostKeyChecking=no", user, "apt-get", "install",
@@ -134,21 +140,41 @@ public class StratusLabLauncher extends DelegatingComputerLauncher {
                 throw new StratusLabException(results.error);
             }
 
-            // copy slave.jar to machine
-            user = "root@" + info.ip;
-            results = runSystemCommandWithResults("scp", "-o",
-                    "StrictHostKeyChecking=no", "/tmp/slave.jar", user
-                            + ":/tmp/slave.jar");
+            // copy slave.jar to instance
+            LOGGER.info("copying slave.jar to instance");
+            listener.getLogger().println("copying slave.jar to instance");
 
-            msg = "copy slave.jar " + results.rc + " with error "
-                    + results.error + " for " + info + ", "
-                    + computer.getName();
-            LOGGER.info(msg);
-            listener.getLogger().println(msg);
-
-            if (results.rc != 0) {
-                throw new StratusLabException(results.error);
+            Connection connection = null;
+            try {
+                connection = sshConnectionToInstance();
+                SCPClient scp = connection.createSCPClient();
+                scp.put(Hudson.getInstance().getJnlpJars("slave.jar")
+                        .readFully(), "slave.jar", "/tmp");
+            } catch (StratusLabException e) {
+                throw e;
+            } finally {
+                if (connection != null) {
+                    connection.close();
+                }
             }
+            LOGGER.info("copied slave to machine");
+            listener.getLogger().println("copied slave to machine");
+
+            // copy slave.jar to machine
+            // user = cloudParams.username + "@" + info.ip;
+            // results = runSystemCommandWithResults("scp", "-o",
+            // "StrictHostKeyChecking=no", "/tmp/slave.jar", user
+            // + ":/tmp/slave.jar");
+            //
+            // msg = "copy slave.jar " + results.rc + " with error "
+            // + results.error + " for " + info + ", "
+            // + computer.getName();
+            // LOGGER.info(msg);
+            // listener.getLogger().println(msg);
+            //
+            // if (results.rc != 0) {
+            // throw new StratusLabException(results.error);
+            // }
 
         } catch (StratusLabException e) {
             LOGGER.severe(e.getMessage());
@@ -157,6 +183,30 @@ public class StratusLabLauncher extends DelegatingComputerLauncher {
 
         super.launch(computer, listener);
 
+    }
+
+    private Connection sshConnectionToInstance() throws StratusLabException {
+
+        String host = info.ip;
+
+        // FIXME: This should be taken from slave template!
+        int port = 22;
+        Connection conn = new Connection(host, port);
+
+        try {
+
+            conn.connect(new ServerHostKeyVerifier() {
+                public boolean verifyServerHostKey(String hostname, int port,
+                        String server, byte[] serverHostKey) throws Exception {
+                    return true;
+                }
+            });
+
+        } catch (IOException e) {
+            throw new StratusLabException(e.getMessage());
+        }
+
+        return conn;
     }
 
     // TODO: Is it necessary to override this?
