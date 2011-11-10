@@ -38,7 +38,7 @@ public class StratusLabCloud extends AbstractCloudImpl {
 
     private static final String CLOUD_NAME = "StratusLab Cloud";
 
-    public final StratusLabProxy.StratusLabParams params;
+    public final CloudParameters params;
 
     public final String clientLocation;
 
@@ -68,8 +68,8 @@ public class StratusLabCloud extends AbstractCloudImpl {
         this.username = username;
         this.password = password;
 
-        params = new StratusLabProxy.StratusLabParams(clientLocation, endpoint,
-                username, password);
+        params = new CloudParameters(clientLocation, endpoint, username,
+                password);
 
         this.instanceLimit = instanceLimit;
         this.templates = copyToImmutableList(templates);
@@ -216,8 +216,8 @@ public class StratusLabCloud extends AbstractCloudImpl {
                 @QueryParameter String endpoint,
                 @QueryParameter String username, @QueryParameter String password) {
 
-            StratusLabProxy.StratusLabParams params = new StratusLabProxy.StratusLabParams(
-                    clientLocation, endpoint, username, password);
+            CloudParameters params = new CloudParameters(clientLocation,
+                    endpoint, username, password);
 
             try {
                 StratusLabProxy.testConnection(params);

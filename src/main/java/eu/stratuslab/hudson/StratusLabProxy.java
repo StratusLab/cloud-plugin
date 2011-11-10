@@ -15,7 +15,7 @@ import eu.stratuslab.hudson.utils.ProcessUtils.ProcessResult;
  */
 public class StratusLabProxy {
 
-    public static void testConnection(StratusLabParams params)
+    public static void testConnection(CloudParameters params)
             throws StratusLabException {
 
         runCommand(params.clientLocation, "stratus-describe-instance",
@@ -23,13 +23,13 @@ public class StratusLabProxy {
                 "--password", params.password);
     }
 
-    public static void testInstallation(StratusLabParams params)
+    public static void testInstallation(CloudParameters params)
             throws StratusLabException {
 
         runCommand(params.clientLocation, "stratus-describe-instance", "--help");
     }
 
-    public static InstanceInfo startInstance(StratusLabParams params,
+    public static InstanceInfo startInstance(CloudParameters params,
             String marketplaceId) throws StratusLabException {
 
         ProcessResult results = runCommandWithResults(params.clientLocation,
@@ -43,7 +43,7 @@ public class StratusLabProxy {
 
     }
 
-    public static String getInstanceStatus(StratusLabParams params, String vmid)
+    public static String getInstanceStatus(CloudParameters params, String vmid)
             throws StratusLabException {
 
         ProcessResult results = runCommandWithResults(params.clientLocation,
@@ -57,7 +57,7 @@ public class StratusLabProxy {
 
     }
 
-    public static void killInstance(StratusLabParams params, String vmid)
+    public static void killInstance(CloudParameters params, String vmid)
             throws StratusLabException {
 
         ProcessResult results = runCommandWithResults(params.clientLocation,
@@ -70,7 +70,7 @@ public class StratusLabProxy {
 
     }
 
-    public static int getNumberOfDefinedInstances(StratusLabParams params) {
+    public static int getNumberOfDefinedInstances(CloudParameters params) {
 
         int definedInstances = Integer.MAX_VALUE;
 
@@ -151,22 +151,6 @@ public class StratusLabProxy {
 
         public String toString() {
             return String.format("%d, %s", vmid, ip);
-        }
-    }
-
-    public static class StratusLabParams {
-
-        public final String clientLocation;
-        public final String endpoint;
-        public final String username;
-        public final String password;
-
-        public StratusLabParams(String clientLocation, String endpoint,
-                String username, String password) {
-            this.clientLocation = clientLocation;
-            this.endpoint = endpoint;
-            this.username = username;
-            this.password = password;
         }
     }
 

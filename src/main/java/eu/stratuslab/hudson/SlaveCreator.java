@@ -11,8 +11,6 @@ import java.util.List;
 import java.util.concurrent.Callable;
 import java.util.logging.Logger;
 
-import eu.stratuslab.hudson.StratusLabProxy.StratusLabParams;
-
 public class SlaveCreator implements Callable<Node> {
 
     private static final Logger LOGGER = Logger.getLogger(StratusLabCloud.class
@@ -20,11 +18,11 @@ public class SlaveCreator implements Callable<Node> {
 
     private final SlaveTemplate template;
 
-    private final StratusLabParams cloudParams;
+    private final CloudParameters cloudParams;
 
     private final Label label;
 
-    public SlaveCreator(SlaveTemplate template, StratusLabParams cloud,
+    public SlaveCreator(SlaveTemplate template, CloudParameters cloud,
             Label label) {
 
         this.template = template;
@@ -42,7 +40,7 @@ public class SlaveCreator implements Callable<Node> {
 
         LOGGER.info("creating slave for " + label + " " + description);
 
-        StratusLabSlave slave = new StratusLabSlave(cloudParams, template,
+        CloudSlave slave = new CloudSlave(cloudParams, template,
                 label.getName(), description, template.remoteFS,
                 template.executors, Node.Mode.NORMAL, label.getName(),
                 nodeProperties);

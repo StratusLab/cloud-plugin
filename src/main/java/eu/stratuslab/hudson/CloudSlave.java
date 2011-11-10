@@ -13,26 +13,23 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 
 import eu.stratuslab.hudson.StratusLabProxy.InstanceInfo;
-import eu.stratuslab.hudson.StratusLabProxy.StratusLabParams;
 
 @SuppressWarnings("serial")
-public class StratusLabSlave extends AbstractCloudSlave {
+public class CloudSlave extends AbstractCloudSlave {
 
     private static final Logger LOGGER = Logger.getLogger(StratusLabCloud.class
             .getName());
 
-    private final StratusLabParams cloudParams;
+    private final CloudParameters cloudParams;
 
     private InstanceInfo info;
 
-    private StratusLabComputer computer;
-
     private final SlaveTemplate template;
 
-    public StratusLabSlave(StratusLabParams cloudParams,
-            SlaveTemplate template, String name, String nodeDescription,
-            String remoteFS, int numExecutors, Node.Mode mode,
-            String labelString, List<? extends NodeProperty<?>> nodeProperties)
+    public CloudSlave(CloudParameters cloudParams, SlaveTemplate template,
+            String name, String nodeDescription, String remoteFS,
+            int numExecutors, Node.Mode mode, String labelString,
+            List<? extends NodeProperty<?>> nodeProperties)
             throws FormException, IOException, StratusLabException {
 
         super(name, nodeDescription, remoteFS, numExecutors, mode, labelString,
@@ -54,8 +51,7 @@ public class StratusLabSlave extends AbstractCloudSlave {
     public StratusLabComputer createComputer() {
 
         LOGGER.log(Level.INFO, "createComputer called");
-        computer = new StratusLabComputer(this);
-        return computer;
+        return new StratusLabComputer(this);
     }
 
     @Override
@@ -64,7 +60,7 @@ public class StratusLabSlave extends AbstractCloudSlave {
 
         LOGGER.log(Level.INFO, "_terminate called");
 
-        String msg = "killing instance " + info + ", " + computer.getName();
+        String msg = "killing instance " + info;
         LOGGER.info(msg);
         listener.getLogger().println(msg);
 

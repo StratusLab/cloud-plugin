@@ -18,12 +18,11 @@ public class StratusLabLauncher extends DelegatingComputerLauncher {
     private static final Logger LOGGER = Logger.getLogger(StratusLabCloud.class
             .getName());
 
-    private final StratusLabProxy.StratusLabParams cloudParams;
+    private final CloudParameters cloudParams;
 
     private final InstanceInfo info;
 
-    public StratusLabLauncher(StratusLabProxy.StratusLabParams cloud,
-            InstanceInfo info) {
+    public StratusLabLauncher(CloudParameters cloud, InstanceInfo info) {
 
         super(getDelegate(info));
         this.cloudParams = cloud;

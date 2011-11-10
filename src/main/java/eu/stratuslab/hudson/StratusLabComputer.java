@@ -2,9 +2,9 @@ package eu.stratuslab.hudson;
 
 import hudson.slaves.AbstractCloudComputer;
 
-public class StratusLabComputer extends AbstractCloudComputer<StratusLabSlave> {
+public class StratusLabComputer extends AbstractCloudComputer<CloudSlave> {
 
-    public StratusLabComputer(StratusLabSlave slave) {
+    public StratusLabComputer(CloudSlave slave) {
         super(slave);
     }
 
