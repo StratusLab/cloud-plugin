@@ -40,7 +40,7 @@ public class CloudSlave extends AbstractCloudSlave {
 
         createInstance();
 
-        setLauncher(new StratusLabLauncher(cloudParams, info));
+        setLauncher(new StratusLabLauncher(cloudParams, template, info));
 
         this.setRetentionStrategy(new CloudRetentionStrategy(
                 template.idleMinutes));

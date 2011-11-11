@@ -13,7 +13,6 @@ import java.util.logging.Logger;
 
 import com.trilead.ssh2.Connection;
 import com.trilead.ssh2.SCPClient;
-import com.trilead.ssh2.ServerHostKeyVerifier;
 
 import eu.stratuslab.hudson.StratusLabProxy.InstanceInfo;
 import eu.stratuslab.hudson.utils.ProcessUtils.ProcessResult;
@@ -25,20 +24,30 @@ public class StratusLabLauncher extends DelegatingComputerLauncher {
 
     private final CloudParameters cloudParams;
 
+    private final SlaveTemplate template;
+
     private final InstanceInfo info;
 
-    public StratusLabLauncher(CloudParameters cloudParams, InstanceInfo info) {
+    public StratusLabLauncher(CloudParameters cloudParams,
+            SlaveTemplate template, InstanceInfo info) {
 
-        super(getDelegate(cloudParams, info));
+        super(getDelegate(cloudParams, template, info));
         this.cloudParams = cloudParams;
+        this.template = template;
         this.info = info;
     }
 
     private static ComputerLauncher getDelegate(CloudParameters cloudParams,
-            InstanceInfo info) {
-        String cmd = "ssh -o StrictHostKeyChecking=no " + cloudParams.username
+            SlaveTemplate template, InstanceInfo info) {
+        String cmd = "ssh -o StrictHostKeyChecking=no " + template.remoteUser
                 + "@" + info.ip + " java -jar /tmp/slave.jar";
         return new CommandLauncher(cmd);
+    }
+
+    private static String sshRemoteUser(SlaveTemplate template,
+            InstanceInfo info) {
+
+        return String.format("%s@%s", template.remoteUser, info.ip);
     }
 
     @Override
@@ -80,13 +89,13 @@ public class StratusLabLauncher extends DelegatingComputerLauncher {
             i = 0;
             while (true) {
 
-                String user = cloudParams.username + "@" + info.ip;
                 ProcessResult results = runSystemCommandWithResults("ssh",
-                        "-o", "StrictHostKeyChecking=no", user, "/bin/true");
+                        "-o", "StrictHostKeyChecking=no",
+                        sshRemoteUser(template, info), "/bin/true");
 
                 msg = "ssh exit code is " + results.rc + " with error "
                         + results.error + " for " + info + ", "
-                        + computer.getName();
+                        + computer.getName() + "\ncommand:\n" + results.cmd;
 
                 LOGGER.info(msg);
                 listener.getLogger().println(msg);
@@ -109,9 +118,9 @@ public class StratusLabLauncher extends DelegatingComputerLauncher {
             }
 
             // install java on the machine
-            String user = cloudParams.username + "@" + info.ip;
             ProcessResult results = runSystemCommandWithResults("ssh", "-o",
-                    "StrictHostKeyChecking=no", user, "apt-get", "update");
+                    "StrictHostKeyChecking=no", sshRemoteUser(template, info),
+                    "apt-get", "update");
 
             msg = "update packages " + results.rc + " with error "
                     + results.error + " for " + info + ", "
@@ -124,11 +133,10 @@ public class StratusLabLauncher extends DelegatingComputerLauncher {
             }
 
             // install java on the machine
-            user = cloudParams.username + "@" + info.ip;
-
             results = runSystemCommandWithResults("ssh", "-o",
-                    "StrictHostKeyChecking=no", user, "apt-get", "install",
-                    "-y", "--fix-missing", "openjdk-6-jdk");
+                    "StrictHostKeyChecking=no", sshRemoteUser(template, info),
+                    "apt-get", "install", "-y", "--fix-missing",
+                    "openjdk-6-jdk");
 
             msg = "java installation " + results.rc + " with error "
                     + results.error + " for " + info + ", "
@@ -146,35 +154,35 @@ public class StratusLabLauncher extends DelegatingComputerLauncher {
 
             Connection connection = null;
             try {
-                connection = sshConnectionToInstance();
+
+                connection = new Connection(info.ip, template.sshPort);
+                connection.connect();
+
+                LOGGER.info("connected via ssh");
+                listener.getLogger().println("connected via ssh");
+
+                connection.authenticateWithPublicKey(template.remoteUser,
+                        cloudParams.getSshPrivateKeyData(),
+                        cloudParams.sshPrivateKeyPassword);
+
+                LOGGER.info("authenticated via ssh");
+                listener.getLogger().println("authenticated via ssh");
+
                 SCPClient scp = connection.createSCPClient();
                 scp.put(Hudson.getInstance().getJnlpJars("slave.jar")
                         .readFully(), "slave.jar", "/tmp");
-            } catch (StratusLabException e) {
-                throw e;
+
+            } catch (IOException e) {
+                LOGGER.severe(e.getMessage());
+                e.printStackTrace(listener.getLogger());
             } finally {
                 if (connection != null) {
                     connection.close();
                 }
             }
+
             LOGGER.info("copied slave to machine");
             listener.getLogger().println("copied slave to machine");
-
-            // copy slave.jar to machine
-            // user = cloudParams.username + "@" + info.ip;
-            // results = runSystemCommandWithResults("scp", "-o",
-            // "StrictHostKeyChecking=no", "/tmp/slave.jar", user
-            // + ":/tmp/slave.jar");
-            //
-            // msg = "copy slave.jar " + results.rc + " with error "
-            // + results.error + " for " + info + ", "
-            // + computer.getName();
-            // LOGGER.info(msg);
-            // listener.getLogger().println(msg);
-            //
-            // if (results.rc != 0) {
-            // throw new StratusLabException(results.error);
-            // }
 
         } catch (StratusLabException e) {
             LOGGER.severe(e.getMessage());
@@ -183,30 +191,6 @@ public class StratusLabLauncher extends DelegatingComputerLauncher {
 
         super.launch(computer, listener);
 
-    }
-
-    private Connection sshConnectionToInstance() throws StratusLabException {
-
-        String host = info.ip;
-
-        // FIXME: This should be taken from slave template!
-        int port = 22;
-        Connection conn = new Connection(host, port);
-
-        try {
-
-            conn.connect(new ServerHostKeyVerifier() {
-                public boolean verifyServerHostKey(String hostname, int port,
-                        String server, byte[] serverHostKey) throws Exception {
-                    return true;
-                }
-            });
-
-        } catch (IOException e) {
-            throw new StratusLabException(e.getMessage());
-        }
-
-        return conn;
     }
 
     // TODO: Is it necessary to override this?
