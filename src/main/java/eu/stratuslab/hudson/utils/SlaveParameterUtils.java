@@ -62,6 +62,20 @@ public final class SlaveParameterUtils {
         }
     }
 
+    public static FormValidation validateRemoteFS(String remoteFS) {
+        if (remoteFS != null && !"".equals(remoteFS.trim())) {
+            String value = remoteFS.trim();
+            if (value.endsWith("/") || value.endsWith("\\")) {
+                return FormValidation.ok();
+            } else {
+                return FormValidation
+                        .error("remoteFS must end with a directory separator (slash or backslash)");
+            }
+        } else {
+            return FormValidation.error("remoteFS must be defined");
+        }
+    }
+
     public static FormValidation validateSshPort(int sshPort) {
 
         if (isValidPort(sshPort)) {

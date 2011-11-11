@@ -5,6 +5,7 @@ import static eu.stratuslab.hudson.utils.SlaveParameterUtils.validateExecutors;
 import static eu.stratuslab.hudson.utils.SlaveParameterUtils.validateIdleMinutes;
 import static eu.stratuslab.hudson.utils.SlaveParameterUtils.validateLabelString;
 import static eu.stratuslab.hudson.utils.SlaveParameterUtils.validateMarketplaceId;
+import static eu.stratuslab.hudson.utils.SlaveParameterUtils.validateRemoteFS;
 import static eu.stratuslab.hudson.utils.SlaveParameterUtils.validateSshPort;
 import hudson.Extension;
 import hudson.model.Describable;
@@ -71,9 +72,7 @@ public class SlaveTemplate implements Describable<SlaveTemplate> {
     public final String remoteUser;
     public final String labelString;
     public final String initScript;
-    public final String context;
     public final int executors;
-    public final String rootCommandPrefix;
     public final String jvmOpts;
     public final int sshPort;
     public final int idleMinutes;
@@ -83,9 +82,8 @@ public class SlaveTemplate implements Describable<SlaveTemplate> {
     @DataBoundConstructor
     public SlaveTemplate(String marketplaceId, InstanceTypes instanceType,
             String description, String remoteFS, String remoteUser,
-            String labelString, String initScript, String context,
-            int executors, String rootCommandPrefix, String jvmOpts,
-            int sshPort, int idleMinutes) {
+            String labelString, String initScript, int executors,
+            String jvmOpts, int sshPort, int idleMinutes) {
 
         this.marketplaceId = marketplaceId;
         this.instanceType = instanceType;
@@ -94,9 +92,7 @@ public class SlaveTemplate implements Describable<SlaveTemplate> {
         this.remoteUser = remoteUser;
         this.labelString = labelString;
         this.initScript = initScript;
-        this.context = context;
         this.executors = executors;
-        this.rootCommandPrefix = rootCommandPrefix;
         this.jvmOpts = jvmOpts;
         this.sshPort = sshPort;
         this.idleMinutes = idleMinutes;
@@ -128,6 +124,10 @@ public class SlaveTemplate implements Describable<SlaveTemplate> {
         public FormValidation doCheckLabelString(
                 @QueryParameter String labelString) {
             return validateLabelString(labelString);
+        }
+
+        public FormValidation doCheckRemoteFS(@QueryParameter String remoteFS) {
+            return validateRemoteFS(remoteFS);
         }
 
         public FormValidation doCheckExecutors(@QueryParameter int executors) {

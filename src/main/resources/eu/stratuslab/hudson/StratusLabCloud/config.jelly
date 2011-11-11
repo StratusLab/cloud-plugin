@@ -2,7 +2,7 @@
   xmlns:l="/lib/layout" xmlns:t="/lib/hudson" xmlns:f="/lib/form">
 
   <f:entry title="${%Cloud Parameters}">
-    <f:repeatable field="params">
+    <f:repeatable field="cloudParameters">
       <st:include page="config.jelly" class="eu.stratuslab.hudson.CloudParameters" />
     </f:repeatable>
   </f:entry>

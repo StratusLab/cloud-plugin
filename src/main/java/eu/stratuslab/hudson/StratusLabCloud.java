@@ -32,6 +32,8 @@ public class StratusLabCloud extends AbstractCloudImpl {
 
     public final CloudParameters params;
 
+    public final ArrayList<CloudParameters> cloudParameters;
+
     public final List<SlaveTemplate> templates;
 
     private final Map<String, SlaveTemplate> labelToTemplateMap;
@@ -39,11 +41,13 @@ public class StratusLabCloud extends AbstractCloudImpl {
     private static final AtomicInteger serial = new AtomicInteger(0);
 
     @DataBoundConstructor
-    public StratusLabCloud(CloudParameters params, List<SlaveTemplate> templates) {
+    public StratusLabCloud(ArrayList<CloudParameters> cloudParameters,
+            List<SlaveTemplate> templates) {
 
-        super(CLOUD_NAME, String.valueOf(params.instanceLimit));
+        super(CLOUD_NAME, String.valueOf(cloudParameters.get(0).instanceLimit));
 
-        this.params = params;
+        this.cloudParameters = cloudParameters;
+        this.params = cloudParameters.get(0);
 
         this.templates = copyToImmutableList(templates);
 
