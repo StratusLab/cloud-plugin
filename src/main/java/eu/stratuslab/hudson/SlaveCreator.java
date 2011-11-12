@@ -16,11 +16,10 @@
  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  See the License for the specific language governing permissions and
  limitations under the License.
-*/
+ */
 package eu.stratuslab.hudson;
 
 import hudson.model.Descriptor;
-import hudson.model.Label;
 import hudson.model.Node;
 import hudson.slaves.NodeProperty;
 
@@ -39,14 +38,14 @@ public class SlaveCreator implements Callable<Node> {
 
     private final CloudParameters cloudParams;
 
-    private final Label label;
+    private final String[] names;
 
     public SlaveCreator(SlaveTemplate template, CloudParameters cloud,
-            Label label) {
+            String[] names) {
 
         this.template = template;
         this.cloudParams = cloud;
-        this.label = label;
+        this.names = names;
     }
 
     public Node call() throws IOException, StratusLabException,
@@ -54,18 +53,13 @@ public class SlaveCreator implements Callable<Node> {
 
         List<? extends NodeProperty<?>> nodeProperties = new LinkedList<NodeProperty<Node>>();
 
-        String description = template.marketplaceId + ", "
-                + template.instanceType.tag();
+        LOGGER.info("creating slave for " + names[2]);
 
-        LOGGER.info("creating slave for " + label + " " + description);
+        CloudSlave slave = new CloudSlave(cloudParams, template, names[1],
+                names[2], template.remoteFS, template.executors,
+                Node.Mode.NORMAL, names[0], nodeProperties);
 
-        CloudSlave slave = new CloudSlave(cloudParams, template,
-                label.getName(), description, template.remoteFS,
-                template.executors, Node.Mode.NORMAL, label.getName(),
-                nodeProperties);
-
-        String msg = "slave created for " + label + " " + description;
-        LOGGER.info(msg);
+        LOGGER.info("slave created for " + names[2]);
 
         return slave;
     }

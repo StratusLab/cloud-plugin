@@ -16,9 +16,11 @@
  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  See the License for the specific language governing permissions and
  limitations under the License.
-*/
+ */
 package eu.stratuslab.hudson;
 
+import static eu.stratuslab.hudson.StratusLabProxy.killInstance;
+import static eu.stratuslab.hudson.StratusLabProxy.startInstance;
 import hudson.model.TaskListener;
 import hudson.model.Descriptor.FormException;
 import hudson.model.Node;
@@ -85,8 +87,7 @@ public class CloudSlave extends AbstractCloudSlave {
 
         try {
 
-            StratusLabProxy
-                    .killInstance(cloudParams, String.valueOf(info.vmid));
+            killInstance(cloudParams, String.valueOf(info.vmid));
 
         } catch (StratusLabException e) {
             LOGGER.severe(e.getMessage());
@@ -100,8 +101,7 @@ public class CloudSlave extends AbstractCloudSlave {
         String msg = "creating instance ";
         LOGGER.info(msg);
 
-        info = StratusLabProxy.startInstance(cloudParams,
-                template.marketplaceId);
+        info = startInstance(cloudParams, template.marketplaceId);
 
         msg = "created instance with " + info;
         LOGGER.info(msg);

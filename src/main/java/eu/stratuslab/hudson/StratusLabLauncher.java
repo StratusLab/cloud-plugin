@@ -16,7 +16,7 @@
  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  See the License for the specific language governing permissions and
  limitations under the License.
-*/
+ */
 package eu.stratuslab.hudson;
 
 import static eu.stratuslab.hudson.utils.CloudParameterUtils.isEmptyStringOrNull;
@@ -70,6 +70,7 @@ public class StratusLabLauncher extends DelegatingComputerLauncher {
 
         try {
 
+            listener.getLogger().println("waiting for running state");
             waitForRunningStatus(listener, pollIntervalMillis, timeoutMillis);
 
             waitForSuccessfulSshConnection(listener, pollIntervalMillis,
@@ -82,8 +83,11 @@ public class StratusLabLauncher extends DelegatingComputerLauncher {
             copySlaveJar(listener);
 
         } catch (StratusLabException e) {
+            LOGGER.severe("launch failed for " + computer.getDisplayName());
             LOGGER.severe(e.getMessage());
             listener.fatalError(e.getMessage());
+            listener.fatalError("launch failed");
+            throw new IOException(e);
         }
 
         super.launch(computer, listener);
@@ -101,6 +105,10 @@ public class StratusLabLauncher extends DelegatingComputerLauncher {
         String fmt, msg;
         long waitTime = 0L;
 
+        fmt = "%s: attempting to ping instance via ssh";
+        msg = String.format(fmt, info.toString());
+        listener.getLogger().println(msg);
+
         for (; waitTime < timeout; waitTime += sleep) {
 
             try {
@@ -113,6 +121,11 @@ public class StratusLabLauncher extends DelegatingComputerLauncher {
                 break;
 
             } catch (IOException consumed) {
+
+                fmt = "%s: ssh ping failed";
+                msg = String.format(fmt, info.toString());
+                listener.getLogger().println(msg);
+
                 try {
                     Thread.sleep(sleep);
                 } catch (InterruptedException e) {
@@ -127,6 +140,10 @@ public class StratusLabLauncher extends DelegatingComputerLauncher {
             msg = String.format(fmt, info.toString());
             listener.fatalError(msg);
             throw new StratusLabException(msg);
+        } else {
+            fmt = "%s: ping via ssh was successful";
+            msg = String.format(fmt, info.toString());
+            listener.getLogger().println(msg);
         }
 
     }
@@ -136,6 +153,10 @@ public class StratusLabLauncher extends DelegatingComputerLauncher {
 
         String fmt, msg;
         long waitTime = 0L;
+
+        fmt = "%s: wait for running state";
+        msg = String.format(fmt, info.toString());
+        listener.getLogger().println(msg);
 
         for (; waitTime < timeout; waitTime += sleep) {
 
@@ -169,14 +190,17 @@ public class StratusLabLauncher extends DelegatingComputerLauncher {
             msg = String.format(fmt, info.toString());
             listener.fatalError(msg);
             throw new StratusLabException(msg);
+        } else {
+            fmt = "%s: instance is running";
+            msg = String.format(fmt, info.toString());
+            listener.getLogger().println(msg);
         }
 
     }
 
-    private void copySlaveJar(TaskListener listener) {
+    private void copySlaveJar(TaskListener listener) throws StratusLabException {
 
         String fmt = "copying slave.jar to %s on instance";
-        LOGGER.info(String.format(fmt, template.remoteFS));
         listener.getLogger().println(String.format(fmt, template.remoteFS));
 
         Connection connection = null;
@@ -189,27 +213,25 @@ public class StratusLabLauncher extends DelegatingComputerLauncher {
                     "slave.jar", template.remoteFS);
 
         } catch (IOException e) {
-            LOGGER.severe(e.getMessage());
             e.printStackTrace(listener.getLogger());
-            listener.error(e.getMessage());
+            listener.fatalError(e.getMessage());
+            throw new StratusLabException(e);
         } finally {
             if (connection != null) {
                 connection.close();
             }
         }
 
-        LOGGER.info("copied slave.jar to instance");
         listener.getLogger().println("copied slave.jar to instance");
-
     }
 
-    private boolean copyInitScript(TaskListener listener) {
+    private boolean copyInitScript(TaskListener listener)
+            throws StratusLabException {
 
         if (isEmptyStringOrNull(template.initScriptDir)
                 || isEmptyStringOrNull(template.initScriptName)
                 || isEmptyStringOrNull(template.initScript)) {
 
-            LOGGER.info("no init script to copy");
             listener.getLogger().println("no init script to copy");
             return false;
         }
@@ -217,7 +239,6 @@ public class StratusLabLauncher extends DelegatingComputerLauncher {
         String fmt = "copying init script to %s with name %s";
         String msg = String.format(fmt, template.initScriptDir,
                 template.initScriptName);
-        LOGGER.info(msg);
         listener.getLogger().println(msg);
 
         Connection connection = null;
@@ -230,25 +251,23 @@ public class StratusLabLauncher extends DelegatingComputerLauncher {
                     template.initScriptDir, "0755");
 
         } catch (IOException e) {
-            LOGGER.severe(e.getMessage());
             e.printStackTrace(listener.getLogger());
-            listener.error(e.getMessage());
-            return false;
+            listener.fatalError(e.getMessage());
+            throw new StratusLabException(e);
         } finally {
             if (connection != null) {
                 connection.close();
             }
         }
 
-        LOGGER.info("copied init script");
         listener.getLogger().println("copied init script");
 
         return true;
     }
 
-    private void runInitScript(TaskListener listener) {
+    private void runInitScript(TaskListener listener)
+            throws StratusLabException {
 
-        LOGGER.info("running init script");
         listener.getLogger().println("running init script");
 
         Connection connection = null;
@@ -267,23 +286,20 @@ public class StratusLabLauncher extends DelegatingComputerLauncher {
             int rc = session.getExitStatus();
             if (rc != 0) {
                 String fmt = "error running %s%s on instance; rc is %d";
-                LOGGER.severe(String.format(fmt, template.initScriptDir,
-                        template.initScriptName, rc));
                 listener.error(String.format(fmt, template.initScriptDir,
                         template.initScriptName, rc));
             }
 
         } catch (IOException e) {
-            LOGGER.severe(e.getMessage());
             e.printStackTrace(listener.getLogger());
-            listener.error(e.getMessage());
+            listener.fatalError(e.getMessage());
+            throw new StratusLabException(e);
         } finally {
             if (connection != null) {
                 connection.close();
             }
         }
 
-        LOGGER.info("executed init script");
         listener.getLogger().println("executed init script");
 
     }

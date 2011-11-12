@@ -16,7 +16,7 @@
  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  See the License for the specific language governing permissions and
  limitations under the License.
-*/
+ */
 package eu.stratuslab.hudson;
 
 import static eu.stratuslab.hudson.utils.CloudParameterUtils.isEmptyStringOrNull;
@@ -165,11 +165,11 @@ public class StratusLabCloud extends AbstractCloudImpl {
 
             for (int i = 0; i < excessWorkload; i += template.executors) {
                 if (numberOfInstances < params.instanceLimit) {
-                    String displayName = generateDisplayName(label, template);
-                    SlaveCreator c = new SlaveCreator(template, params, label);
+                    String[] names = generateDisplayNames(label, template);
+                    SlaveCreator c = new SlaveCreator(template, params, names);
                     Future<Node> futureNode = Computer.threadPoolForRemoting
                             .submit(c);
-                    nodes.add(new PlannedNode(displayName, futureNode,
+                    nodes.add(new PlannedNode(names[0], futureNode,
                             template.executors));
                     numberOfInstances++;
                 } else {
@@ -184,11 +184,18 @@ public class StratusLabCloud extends AbstractCloudImpl {
         return nodes;
     }
 
-    public static String generateDisplayName(Label label, SlaveTemplate template) {
+    public static String[] generateDisplayNames(Label label,
+            SlaveTemplate template) {
 
-        final String fmt = "%s-%d (%s, %s)";
-        return String.format(fmt, label.getName(), serial.incrementAndGet(),
-                template.marketplaceId, template.instanceType.tag());
+        final String fmt1 = "%s-%d";
+        final String fmt2 = "%s (%s, %s)";
+
+        String brief = String.format(fmt1, label.getName(),
+                serial.incrementAndGet());
+        String full = String.format(fmt2, brief, template.marketplaceId,
+                template.instanceType.tag());
+
+        return new String[] { label.getName(), brief, full };
     }
 
     @Extension
