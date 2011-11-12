@@ -24,6 +24,7 @@ import hudson.model.Node;
 import hudson.slaves.NodeProperty;
 
 import java.io.IOException;
+import java.util.Arrays;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.concurrent.Callable;
@@ -45,7 +46,7 @@ public class SlaveCreator implements Callable<Node> {
 
         this.template = template;
         this.cloudParams = cloud;
-        this.names = names;
+        this.names = Arrays.copyOf(names, names.length);
     }
 
     public Node call() throws IOException, StratusLabException,
