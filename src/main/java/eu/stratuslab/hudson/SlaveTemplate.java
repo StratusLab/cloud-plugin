@@ -19,12 +19,14 @@ import hudson.model.Descriptor;
 import hudson.model.Hudson;
 import hudson.util.FormValidation;
 
+import java.io.Serializable;
 import java.util.List;
 
 import org.kohsuke.stapler.DataBoundConstructor;
 import org.kohsuke.stapler.QueryParameter;
 
-public class SlaveTemplate implements Describable<SlaveTemplate> {
+@SuppressWarnings("serial")
+public class SlaveTemplate implements Describable<SlaveTemplate>, Serializable {
 
     public enum InstanceTypes {
         T1_MICRO("t1.micro", 1, 128, 512), //

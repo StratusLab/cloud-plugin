@@ -1,18 +1,19 @@
 package eu.stratuslab.hudson;
 
 import static eu.stratuslab.hudson.utils.CloudParameterUtils.isEmptyStringOrNull;
+import static eu.stratuslab.hudson.utils.ProcessUtils.closeReliably;
 
 import java.io.CharArrayWriter;
 import java.io.File;
 import java.io.FileReader;
 import java.io.IOException;
+import java.io.Serializable;
 import java.util.Arrays;
 
 import org.kohsuke.stapler.DataBoundConstructor;
 
-import eu.stratuslab.hudson.utils.ProcessUtils;
-
-public class CloudParameters {
+@SuppressWarnings("serial")
+public class CloudParameters implements Serializable {
 
     public final String clientLocation;
     public final String endpoint;
@@ -85,11 +86,13 @@ public class CloudParameters {
                 }
                 data = writer.toCharArray();
             } catch (IOException consumed) {
-                ProcessUtils.closeReliably(writer);
+            } finally {
+                closeReliably(writer);
             }
         } catch (IOException consumed) {
-            ProcessUtils.closeReliably(reader);
             return new char[0];
+        } finally {
+            closeReliably(reader);
         }
 
         return data;

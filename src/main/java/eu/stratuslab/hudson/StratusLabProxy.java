@@ -5,6 +5,7 @@ import static eu.stratuslab.hudson.utils.ProcessUtils.runCommandWithResults;
 
 import java.io.BufferedReader;
 import java.io.IOException;
+import java.io.Serializable;
 import java.io.StringReader;
 
 import eu.stratuslab.hudson.utils.ProcessUtils;
@@ -139,7 +140,8 @@ public class StratusLabProxy {
         return "unknown";
     }
 
-    public static class InstanceInfo {
+    @SuppressWarnings("serial")
+    public static class InstanceInfo implements Serializable {
 
         public final int vmid;
         public final String ip;
