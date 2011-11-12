@@ -1,12 +1,18 @@
 package eu.stratuslab.hudson;
 
+import static eu.stratuslab.hudson.utils.CloudParameterUtils.isEmptyStringOrNull;
 import static eu.stratuslab.hudson.utils.SlaveParameterUtils.createLabelList;
 import static eu.stratuslab.hudson.utils.SlaveParameterUtils.validateExecutors;
 import static eu.stratuslab.hudson.utils.SlaveParameterUtils.validateIdleMinutes;
+import static eu.stratuslab.hudson.utils.SlaveParameterUtils.validateInitScript;
+import static eu.stratuslab.hudson.utils.SlaveParameterUtils.validateInitScriptDir;
+import static eu.stratuslab.hudson.utils.SlaveParameterUtils.validateInitScriptName;
 import static eu.stratuslab.hudson.utils.SlaveParameterUtils.validateLabelString;
 import static eu.stratuslab.hudson.utils.SlaveParameterUtils.validateMarketplaceId;
+import static eu.stratuslab.hudson.utils.SlaveParameterUtils.validatePollInterval;
 import static eu.stratuslab.hudson.utils.SlaveParameterUtils.validateRemoteFS;
 import static eu.stratuslab.hudson.utils.SlaveParameterUtils.validateSshPort;
+import static eu.stratuslab.hudson.utils.SlaveParameterUtils.validateTimeout;
 import hudson.Extension;
 import hudson.model.Describable;
 import hudson.model.Descriptor;
@@ -71,31 +77,43 @@ public class SlaveTemplate implements Describable<SlaveTemplate> {
     public final String remoteFS;
     public final String remoteUser;
     public final String labelString;
+    public final boolean initScriptFlag;
+    public final String initScriptDir;
+    public final String initScriptName;
     public final String initScript;
     public final int executors;
     public final String jvmOpts;
     public final int sshPort;
     public final int idleMinutes;
+    public final long pollInterval;
+    public final long timeout;
 
     public final List<String> labels;
 
     @DataBoundConstructor
     public SlaveTemplate(String marketplaceId, InstanceTypes instanceType,
             String description, String remoteFS, String remoteUser,
-            String labelString, String initScript, int executors,
-            String jvmOpts, int sshPort, int idleMinutes) {
+            String labelString, boolean initScriptFlag, String initScriptDir,
+            String initScriptName, String initScript, int executors,
+            String jvmOpts, int sshPort, int idleMinutes, long pollInterval,
+            long timeout) {
 
         this.marketplaceId = marketplaceId;
         this.instanceType = instanceType;
         this.description = description;
         this.remoteFS = remoteFS;
-        this.remoteUser = remoteUser;
+        this.remoteUser = getRemoteUser(remoteUser);
         this.labelString = labelString;
+        this.initScriptFlag = initScriptFlag;
+        this.initScriptDir = initScriptDir;
+        this.initScriptName = initScriptName;
         this.initScript = initScript;
         this.executors = executors;
         this.jvmOpts = jvmOpts;
         this.sshPort = sshPort;
         this.idleMinutes = idleMinutes;
+        this.pollInterval = pollInterval;
+        this.timeout = timeout;
 
         this.labels = createLabelList(labelString);
     }
@@ -107,6 +125,14 @@ public class SlaveTemplate implements Describable<SlaveTemplate> {
 
     public int getExecutors() {
         return executors;
+    }
+
+    public static String getRemoteUser(String remoteUser) {
+        String user = remoteUser;
+        if (isEmptyStringOrNull(remoteUser)) {
+            user = "root";
+        }
+        return user;
     }
 
     @Extension
@@ -126,6 +152,21 @@ public class SlaveTemplate implements Describable<SlaveTemplate> {
             return validateLabelString(labelString);
         }
 
+        public FormValidation doCheckInitScriptDir(
+                @QueryParameter String initScriptDir) {
+            return validateInitScriptDir(initScriptDir);
+        }
+
+        public FormValidation doCheckInitScriptName(
+                @QueryParameter String initScriptName) {
+            return validateInitScriptName(initScriptName);
+        }
+
+        public FormValidation doCheckInitScript(
+                @QueryParameter String initScript) {
+            return validateInitScript(initScript);
+        }
+
         public FormValidation doCheckRemoteFS(@QueryParameter String remoteFS) {
             return validateRemoteFS(remoteFS);
         }
@@ -136,6 +177,15 @@ public class SlaveTemplate implements Describable<SlaveTemplate> {
 
         public FormValidation doCheckIdleMinutes(@QueryParameter int idleMinutes) {
             return validateIdleMinutes(idleMinutes);
+        }
+
+        public FormValidation doCheckPollInterval(
+                @QueryParameter long pollInterval) {
+            return validatePollInterval(pollInterval);
+        }
+
+        public FormValidation doCheckTimeout(@QueryParameter long timeout) {
+            return validateTimeout(timeout);
         }
 
         public FormValidation doCheckSshPort(@QueryParameter int sshPort) {

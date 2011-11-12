@@ -35,7 +35,7 @@ public class StratusLabProxy {
         ProcessResult results = runCommandWithResults(params.clientLocation,
                 "stratus-run-instance", "--endpoint", params.endpoint,
                 "--username", params.username, "--password", params.password,
-                "--quiet", marketplaceId);
+                "--key", params.sshPublicKey, "--quiet", marketplaceId);
         if (results.rc != 0) {
             throw new StratusLabException(results.error);
         }
@@ -49,7 +49,7 @@ public class StratusLabProxy {
         ProcessResult results = runCommandWithResults(params.clientLocation,
                 "stratus-describe-instance", "--endpoint", params.endpoint,
                 "--username", params.username, "--password", params.password,
-                String.valueOf(vmid));
+                vmid);
         if (results.rc != 0) {
             throw new StratusLabException(results.error);
         }

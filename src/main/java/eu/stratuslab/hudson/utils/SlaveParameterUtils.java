@@ -62,8 +62,38 @@ public final class SlaveParameterUtils {
         }
     }
 
+    public static FormValidation validateInitScriptDir(String initScriptDir) {
+        if (!isEmptyStringOrNull(initScriptDir)) {
+            String value = initScriptDir.trim();
+            if (value.endsWith("/") || value.endsWith("\\")) {
+                return FormValidation.ok();
+            } else {
+                return FormValidation
+                        .error("init script directory must end with a directory separator (slash or backslash)");
+            }
+        } else {
+            return FormValidation.error("remoteFS must be defined");
+        }
+    }
+
+    public static FormValidation validateInitScriptName(String initScriptName) {
+        if (isEmptyStringOrNull(initScriptName)) {
+            return FormValidation.error("init script name cannot be empty");
+        } else {
+            return FormValidation.ok();
+        }
+    }
+
+    public static FormValidation validateInitScript(String initScript) {
+        if (isEmptyStringOrNull(initScript)) {
+            return FormValidation.error("init script contents cannot be empty");
+        } else {
+            return FormValidation.ok();
+        }
+    }
+
     public static FormValidation validateRemoteFS(String remoteFS) {
-        if (remoteFS != null && !"".equals(remoteFS.trim())) {
+        if (!isEmptyStringOrNull(remoteFS)) {
             String value = remoteFS.trim();
             if (value.endsWith("/") || value.endsWith("\\")) {
                 return FormValidation.ok();
@@ -82,6 +112,24 @@ public final class SlaveParameterUtils {
             return FormValidation.ok();
         } else {
             return FormValidation.error("port must be in range [1, 65535]");
+        }
+    }
+
+    public static FormValidation validatePollInterval(long pollInterval) {
+
+        if (pollInterval > 0L) {
+            return FormValidation.ok();
+        } else {
+            return FormValidation.error("poll interval must be positive value");
+        }
+    }
+
+    public static FormValidation validateTimeout(long timeout) {
+
+        if (timeout > 0L) {
+            return FormValidation.ok();
+        } else {
+            return FormValidation.error("timeout must be positive value");
         }
     }
 

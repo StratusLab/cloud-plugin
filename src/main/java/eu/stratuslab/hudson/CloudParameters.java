@@ -1,14 +1,6 @@
 package eu.stratuslab.hudson;
 
 import static eu.stratuslab.hudson.utils.CloudParameterUtils.isEmptyStringOrNull;
-import static eu.stratuslab.hudson.utils.CloudParameterUtils.isPositiveInteger;
-import static eu.stratuslab.hudson.utils.CloudParameterUtils.validateClientLocation;
-import static eu.stratuslab.hudson.utils.CloudParameterUtils.validateEndpoint;
-import hudson.Extension;
-import hudson.model.Describable;
-import hudson.model.Descriptor;
-import hudson.model.Hudson;
-import hudson.util.FormValidation;
 
 import java.io.CharArrayWriter;
 import java.io.File;
@@ -17,16 +9,16 @@ import java.io.IOException;
 import java.util.Arrays;
 
 import org.kohsuke.stapler.DataBoundConstructor;
-import org.kohsuke.stapler.QueryParameter;
 
 import eu.stratuslab.hudson.utils.ProcessUtils;
 
-public class CloudParameters implements Describable<CloudParameters> {
+public class CloudParameters {
 
     public final String clientLocation;
     public final String endpoint;
     public final String username;
     public final String password;
+    public final String sshPublicKey;
     public final String sshPrivateKey;
     public final String sshPrivateKeyPassword;
     public final int instanceLimit;
@@ -35,45 +27,46 @@ public class CloudParameters implements Describable<CloudParameters> {
 
     @DataBoundConstructor
     public CloudParameters(String clientLocation, String endpoint,
-            String username, String password, String sshPrivateKey,
-            String sshPrivateKeyPassword, int instanceLimit) {
+            String username, String password, String sshPublicKey,
+            String sshPrivateKey, String sshPrivateKeyPassword,
+            int instanceLimit) {
 
         this.clientLocation = clientLocation;
         this.endpoint = endpoint;
         this.username = username;
         this.password = password;
-        this.sshPrivateKey = sshPrivateKey;
+        this.sshPublicKey = getKeyFile(sshPublicKey, ".pub").getAbsolutePath();
+        this.sshPrivateKey = getKeyFile(sshPrivateKey, "").getAbsolutePath();
         this.sshPrivateKeyPassword = sshPrivateKeyPassword;
         this.instanceLimit = instanceLimit;
 
         sshPrivateKeyData = getSshPrivateKeyData(sshPrivateKey);
     }
 
-    @SuppressWarnings("unchecked")
-    public Descriptor<CloudParameters> getDescriptor() {
-        return Hudson.getInstance().getDescriptor(getClass());
-    }
-
     public char[] getSshPrivateKeyData() {
         return Arrays.copyOf(sshPrivateKeyData, sshPrivateKeyData.length);
     }
 
-    private static char[] getSshPrivateKeyData(String sshPrivateKey) {
+    public static File getKeyFile(String keyFilename, String suffix) {
 
-        if (sshPrivateKey != null) {
-            sshPrivateKey = sshPrivateKey.trim();
-        }
-
-        if (sshPrivateKey == null || "".equals(sshPrivateKey)) {
+        File keyFile = null;
+        if (isEmptyStringOrNull(keyFilename)) {
             File home = new File(System.getProperty("user.home"));
             File sshDir = new File(home, ".ssh");
-            sshPrivateKey = (new File(sshDir, "id_rsa")).getAbsolutePath();
+            keyFile = (new File(sshDir, "id_rsa" + suffix)).getAbsoluteFile();
+        } else {
+            keyFile = new File(keyFilename).getAbsoluteFile();
         }
 
-        return fileToCharArray(new File(sshPrivateKey));
+        return keyFile;
     }
 
-    private static char[] fileToCharArray(File file) {
+    public static char[] getSshPrivateKeyData(String sshPrivateKey) {
+        File keyFile = getKeyFile(sshPrivateKey, "");
+        return fileToCharArray(keyFile);
+    }
+
+    public static char[] fileToCharArray(File file) {
 
         char[] data = new char[0];
 
@@ -100,83 +93,6 @@ public class CloudParameters implements Describable<CloudParameters> {
         }
 
         return data;
-
-    }
-
-    @Extension
-    public static final class DescriptorImpl extends
-            Descriptor<CloudParameters> {
-
-        @Override
-        public String getDisplayName() {
-            return "Cloud Parameters";
-        }
-
-        public FormValidation doCheckClientLocation(
-                @QueryParameter String clientLocation) {
-            return validateClientLocation(clientLocation);
-        }
-
-        public FormValidation doCheckEndpoint(@QueryParameter String endpoint) {
-            return validateEndpoint(endpoint);
-        }
-
-        public FormValidation doCheckUsername(@QueryParameter String username) {
-            if (isEmptyStringOrNull(username)) {
-                return FormValidation.error("username must be defined");
-            } else {
-                return FormValidation.ok();
-            }
-        }
-
-        public FormValidation doCheckPassword(@QueryParameter String password) {
-            if (isEmptyStringOrNull(password)) {
-                return FormValidation.error("password must be defined");
-            } else {
-                return FormValidation.ok();
-            }
-        }
-
-        public FormValidation doCheckSshPrivateKey(
-                @QueryParameter String sshPrivateKey) {
-
-            char[] data = getSshPrivateKeyData(sshPrivateKey);
-
-            if (data.length == 0) {
-                return FormValidation
-                        .error("SSH private key cannot be read or is empty");
-            } else {
-                return FormValidation.ok();
-            }
-        }
-
-        public FormValidation doCheckInstanceLimit(
-                @QueryParameter int instanceLimit) {
-
-            if (!isPositiveInteger(instanceLimit)) {
-                return FormValidation
-                        .error("instance limit must be a positive integer");
-            } else {
-                return FormValidation.ok();
-            }
-        }
-
-        public FormValidation doTestConnection(
-                @QueryParameter String clientLocation,
-                @QueryParameter String endpoint,
-                @QueryParameter String username, @QueryParameter String password) {
-
-            CloudParameters params = new CloudParameters(clientLocation,
-                    endpoint, username, password, null, null, 1);
-
-            try {
-                StratusLabProxy.testConnection(params);
-            } catch (StratusLabException e) {
-                return FormValidation.error(e.getMessage());
-            }
-
-            return FormValidation.ok();
-        }
 
     }
 

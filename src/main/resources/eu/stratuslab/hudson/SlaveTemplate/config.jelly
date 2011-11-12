@@ -20,18 +20,33 @@
     <f:entry title="${%Labels}" field="labelString">
       <f:textbox />
     </f:entry>
-    <f:entry title="${%Init Script}" field="initScript">
-      <f:textarea />
-    </f:entry>
+    <f:optionalBlock title="Define initialization script"
+      inline="true" field="initScriptFlag">
+      <f:entry title="${%Init script directory}" field="initScriptDir">
+        <f:textbox default="/tmp/" />
+      </f:entry>
+      <f:entry title="${%Init script name}" field="initScriptName">
+        <f:textbox default="init.sh" />
+      </f:entry>
+      <f:entry title="${%Init script contents}" field="initScript">
+        <f:textarea />
+      </f:entry>
+    </f:optionalBlock>
 
     <f:advanced>
-      <f:entry title="${%Number of Executors}" field="executors">
+      <f:entry title="${%Number of executors}" field="executors">
         <f:textbox default="1" />
       </f:entry>
-      <f:entry title="${%Idle Time in Minutes}" field="idleMinutes">
+      <f:entry title="${%Idle time in Minutes}" field="idleMinutes">
         <f:textbox default="10" />
       </f:entry>
-      <f:entry title="${%JVM Options}" field="jvmopts">
+      <f:entry title="${%Poll interval in seconds}" field="pollInterval">
+        <f:textbox default="15" />
+      </f:entry>
+      <f:entry title="${%Timeout period in minutes}" field="timeout">
+        <f:textbox default="5" />
+      </f:entry>
+      <f:entry title="${%JVM options}" field="jvmopts">
         <f:textbox />
       </f:entry>
       <f:entry title="${%Remote ssh port}" field="sshPort">

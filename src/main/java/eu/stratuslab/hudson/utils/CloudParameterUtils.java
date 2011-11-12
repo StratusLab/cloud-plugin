@@ -3,11 +3,13 @@ package eu.stratuslab.hudson.utils;
 import static eu.stratuslab.hudson.utils.ProcessUtils.runCommand;
 import hudson.util.FormValidation;
 
+import java.io.File;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import eu.stratuslab.hudson.CloudParameters;
 import eu.stratuslab.hudson.StratusLabException;
 
 public final class CloudParameterUtils {
@@ -82,7 +84,7 @@ public final class CloudParameterUtils {
     }
 
     public static boolean isEmptyStringOrNull(String s) {
-        return (EMPTY_STRING.equals(s) || s == null);
+        return (s == null || EMPTY_STRING.equals(s.trim()));
     }
 
     public static boolean isValidPort(int port) {
@@ -100,6 +102,17 @@ public final class CloudParameterUtils {
 
     public static boolean isPositiveInteger(int i) {
         return (i > 0);
+    }
+
+    public static FormValidation validateKeyFile(String keyFilename,
+            String suffix) {
+        File keyFile = CloudParameters.getKeyFile(keyFilename, suffix);
+        if (keyFile.canRead()) {
+            return FormValidation.ok();
+        } else {
+            return FormValidation.error("cannot read key file "
+                    + keyFile.getAbsolutePath());
+        }
     }
 
     public static FormValidation validateClientLocation(String clientLocation) {
