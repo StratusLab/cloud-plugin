@@ -346,7 +346,7 @@ public class StratusLabLauncher extends DelegatingComputerLauncher {
             javaopts = template.jvmOpts.trim();
         }
 
-        String cmd = String.format(fmt, cloudParams.sshPublicKey,
+        String cmd = String.format(fmt, cloudParams.sshPrivateKey,
                 template.remoteUser, info.ip, javaopts, template.remoteFS);
 
         return new CommandLauncher(cmd);
