@@ -57,8 +57,8 @@
   </ciManagement>
 
   <scm>
-    <connection>scm:git:ssh://apache@code.stratuslab.eu/ext/git/stratuslab-cloud-plugin.git</connection>
-    <developerConnection>scm:git:ssh://apache@code.stratuslab.eu/ext/git/stratuslab-cloud-plugin.git</developerConnection>
+    <connection>scm:git:https://code.stratuslab.eu/git/stratuslab-cloud-plugin.git</connection>
+    <developerConnection>scm:git:https://code.stratuslab.eu/git/stratuslab-cloud-plugin.git</developerConnection>
   </scm>
 
   <repositories>
