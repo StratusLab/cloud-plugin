@@ -16,7 +16,7 @@
  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  See the License for the specific language governing permissions and
  limitations under the License.
-*/
+ */
 package eu.stratuslab.hudson;
 
 import static eu.stratuslab.hudson.utils.ProcessUtils.runCommand;
@@ -50,12 +50,14 @@ public class StratusLabProxy {
     }
 
     public static InstanceInfo startInstance(CloudParameters params,
-            String marketplaceId) throws StratusLabException {
+            String marketplaceId, SlaveTemplate.InstanceTypes instanceType)
+            throws StratusLabException {
 
         ProcessResult results = runCommandWithResults(params.clientLocation,
                 "stratus-run-instance", "--endpoint", params.endpoint,
                 "--username", params.username, "--password", params.password,
-                "--key", params.sshPublicKey, "--quiet", marketplaceId);
+                "--key", params.sshPublicKey, "--type", instanceType.label(),
+                "--quiet", marketplaceId);
         if (results.rc != 0) {
             throw new StratusLabException(results.error);
         }

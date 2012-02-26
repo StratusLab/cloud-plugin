@@ -101,7 +101,8 @@ public class CloudSlave extends AbstractCloudSlave {
         String msg = "creating instance ";
         LOGGER.info(msg);
 
-        info = startInstance(cloudParams, template.marketplaceId);
+        info = startInstance(cloudParams, template.marketplaceId,
+                template.instanceType);
 
         msg = "created instance with " + info;
         LOGGER.info(msg);
