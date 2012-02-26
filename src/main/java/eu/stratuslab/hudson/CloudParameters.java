@@ -16,7 +16,7 @@
  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  See the License for the specific language governing permissions and
  limitations under the License.
-*/
+ */
 package eu.stratuslab.hudson;
 
 import static eu.stratuslab.hudson.utils.CloudParameterUtils.isEmptyStringOrNull;
@@ -24,9 +24,12 @@ import static eu.stratuslab.hudson.utils.ProcessUtils.closeReliably;
 
 import java.io.CharArrayWriter;
 import java.io.File;
-import java.io.FileReader;
+import java.io.FileInputStream;
 import java.io.IOException;
+import java.io.InputStreamReader;
+import java.io.Reader;
 import java.io.Serializable;
+import java.nio.charset.Charset;
 import java.util.Arrays;
 
 import org.kohsuke.stapler.DataBoundConstructor;
@@ -90,9 +93,10 @@ public class CloudParameters implements Serializable {
 
         char[] data = new char[0];
 
-        FileReader reader = null;
+        Reader reader = null;
         try {
-            reader = new FileReader(file);
+            reader = new InputStreamReader(new FileInputStream(file),
+                    Charset.defaultCharset());
             char[] buffer = new char[2048];
             CharArrayWriter writer = null;
             try {

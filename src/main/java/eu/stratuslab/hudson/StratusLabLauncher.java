@@ -29,6 +29,7 @@ import hudson.slaves.SlaveComputer;
 import hudson.util.IOUtils;
 
 import java.io.IOException;
+import java.nio.charset.Charset;
 import java.util.logging.Logger;
 
 import com.trilead.ssh2.Connection;
@@ -41,6 +42,8 @@ public class StratusLabLauncher extends DelegatingComputerLauncher {
 
     private static final Logger LOGGER = Logger.getLogger(StratusLabCloud.class
             .getName());
+
+    private static final Charset UTF8 = Charset.forName("UTF-8");
 
     private final long pollIntervalMillis;
 
@@ -246,9 +249,11 @@ public class StratusLabLauncher extends DelegatingComputerLauncher {
 
             connection = openSshConnection();
 
+            // Assumes that client will understand UTF-8. This should
+            // probably be added as a parameter in the configuration.
             SCPClient scp = connection.createSCPClient();
-            scp.put(template.initScript.getBytes(), template.initScriptName,
-                    template.initScriptDir, "0755");
+            scp.put(template.initScript.getBytes(UTF8),
+                    template.initScriptName, template.initScriptDir, "0755");
 
         } catch (IOException e) {
             e.printStackTrace(listener.getLogger());

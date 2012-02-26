@@ -16,7 +16,7 @@
  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  See the License for the specific language governing permissions and
  limitations under the License.
-*/
+ */
 package eu.stratuslab.hudson.utils;
 
 import java.io.BufferedInputStream;
@@ -26,6 +26,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.Reader;
+import java.nio.charset.Charset;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
@@ -167,7 +168,7 @@ public final class ProcessUtils {
         Reader reader = null;
         try {
 
-            reader = new InputStreamReader(bis);
+            reader = new InputStreamReader(bis, Charset.defaultCharset());
 
             int nbytes = reader.read(buffer, 0, BUFFER_SIZE);
             while (nbytes != -1) {
