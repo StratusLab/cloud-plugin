@@ -56,7 +56,7 @@ public class StratusLabProxy {
         ProcessResult results = runCommandWithResults(params.clientLocation,
                 "stratus-run-instance", "--endpoint", params.endpoint,
                 "--username", params.username, "--password", params.password,
-                "--key", params.sshPublicKey, "--type", instanceType.label(),
+                "--key", params.sshPublicKey, "--type", instanceType.tag(),
                 "--quiet", marketplaceId);
         if (results.rc != 0) {
             throw new StratusLabException(results.error);
